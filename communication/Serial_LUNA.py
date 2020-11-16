@@ -1,42 +1,67 @@
 import serial
 import time
-# serialArdu = serial.Serial('COM7',115200)
-# serialArdu.timeout = 0.1
 serialPic = serial.Serial(port= 'COM5',timeout = 3, baudrate=115200,
                   xonxoff=0, rtscts=0,bytesize=8, parity='N', stopbits=1)
 serialPic.rts = 0
 serialPic.dtr = 0
 serialPic.timeout = 0.1
 serialPic.flush()
-# Data FF F_ xx xx yy yy zz zz aa aa gg
-def toByte(x,y):
-    x = int(x)
-    y = int(y)
+
+def toByte(x,y,z,a):
+    din = [int(x),int(y),int(z),int(a)]
     bytelist = []
-    if x > 255:
-        bytelist.append(1)
-        bytelist.append(x-256)
-    else:
-        bytelist.append(0)
-        bytelist.append(x)
-    if y > 255:
-        bytelist.append(1)
-        bytelist.append(y-256)
-    else:
-        bytelist.append(0)
-        bytelist.append(y)
+    for i in din:
+        bytelist.append(i//256)
+        bytelist.append(i%256)
     return bytelist
-# def CommuArdu():
-#     while True:
-#         i = input("input (on/off): ").strip()
-#         if i == 'done':
-#             print('finished program')
-#             break
-#         serialArdu.write(i.encode())
-#         time.sleep(0.5)
-#         print(serialArdu.readline().decode('ascii'))
-#     serialArdu.close()
-def CommuPic():
+# Data FF F_ xx xx yy yy zz zz aa aa gg
+def Sethome():
+    data = [255,241,0,0,0,0,0,0,0,0,0]                            #"FF,F1" + x + y + z + a + g
+    print(data)
+    while(True):
+        serialPic.write(serial.to_bytes(data))
+        a = serialPic.readline()
+        print(a)
+        if serialPic.readline() != 0:
+            spic = [b for b in a][0]
+            if spic == 241:
+                break
+    print("LUNA Comimg Home")
+
+def Capture():
+    data = [255,242,0,0,0,0,0,0,0,0,0]                            #"FF,F2"
+    serialPic.write(serial.to_bytes(data))
+    state = 1
+    while(True):
+        a = serialPic.readline()
+        print(a)
+        spic = [b for b in a][0]
+        if spic == state:
+            print("state = "+ str(state))
+            serialPic.write(serial.to_bytes(spic))
+            state += 1
+        if spic == 99:
+            print("error")
+            serialPic.write(serial.to_bytes(data))
+            state = 1
+        if spic == 242:
+            break
+    print("Capture Finish")
+
+def Catch():
+    data = [255,243,0,0,1,94,0,0,0,0,0]                           #"FF,F3" + x + y + z 
+    print(data)
+    # serialPic.write(serial.to_bytes(data))
+    while(True):
+        serialPic.write(serial.to_bytes(data))
+        a = serialPic.readline()
+        print(a)
+        spic = [b for b in a][0]
+        if spic == 243:
+            break
+    print("Catch!")
+
+def Move():
     while True:
         x = input("X-axis : ")
         if x == 'q':
@@ -46,68 +71,64 @@ def CommuPic():
         if y == 'q':
             print('quit')
             break
-        elif y == 'b':
-            print('back')
-            continue
-        elif  x == 's' and y == 's':
-            data = [255,240,0,0,0,0]                                #"FF,F0"
+        z = input("Z-axis : ")
+        if z == 'q':
+            print('quit')
+            break
+        byteL = toByte(x,y,z,0)
+        byteL.append(0)
+        data = [255,244,byteL[0],byteL[1],byteL[2],byteL[3],byteL[4],byteL[5],byteL[6],byteL[7],byteL[8]]    #"FF,F4" + x + y + z
+        print(data)
+        serialPic.write(serial.to_bytes(data))
+        while(True):
             serialPic.write(serial.to_bytes(data))
-            print(data)
-            print("Stay")
-        elif  x == 'p' and y == 'p':
-            data = [255,242,0,0,0,0]                                #"FF,F2"
-            serialPic.write(serial.to_bytes(data))
-            state = 1
-            while(True):
-                a = serialPic.readline()
-                print(a)
-                spic = [b for b in a][0]
-                if spic == state:
-                    serialPic.write(serial.to_bytes(spic))
-                    state += 1
-                if spic == 99:
-                    serialPic.write(serial.to_bytes(data))
-                    state = 1
-                if spic == 242:
-                    break
-            print(data)
-            print("Take pic")
-        elif  x == 'c' and y == 'c':
-            data = [255,243,0,0,1,94]                               #"FF,F3"
-            serialPic.write(serial.to_bytes(data))
-            print(data)
-            print("Catch!")
-        elif x == 'h' and y == 'h':
-            data = [255,241,0,0,0,0]                                #"FF,F1" + x + y +
-            serialPic.write(serial.to_bytes(data))
-            print(data)
-            print("LUNA Comimg Home")
-        else:
-            byteL = toByte(x,y)
-            data = [255,244,byteL[0],byteL[1],byteL[2],byteL[3]]    #"FF,F4" + x + y
-            serialPic.write(serial.to_bytes(data))
-            print(data)
-            print("Move to x="+ x +" , y="+ y)
-        print("Pic :")
-        a = serialPic.readline()
-        print(str(a))
-        print([b for b in a]) 
-        time.sleep(0.5)
-        # print(serialPic.readline())
-        # time.sleep(0.5)
-    serialPic.close()
-
-print("LUNA Link start!")
-while True:
-    s = input("input (XY / Z): ").strip()
-    if s == 'done':
-        print('finished program')
+            a = serialPic.readline()
+            print(a)
+            spic = [b for b in a][0]
+            if spic == 244:
+                break
+        print("Move to x="+ x +" , y="+ y + " , z="+ z)
         break
-    # if s == 'Z':
-    #     CommuArdu()
-    #     continue
-    if s == 'XY':
-        CommuPic()
-        continue
-    else:
-        print('Invalid Input')
+
+def Reset():
+    data = [255,187,0,0,0,0,0,0,0,0,0]                            #"FF,BB" 
+    print(data)
+    serialPic.write(serial.to_bytes(data))
+    while(True):
+        a = serialPic.readline()
+        print(a)
+        spic = [b for b in a][0]
+        if spic == 187:
+            serialPic.rts = 1
+            time.sleep(1)
+            serialPic.rts = 0
+    print("LUNA Reset Complete")
+
+def Mode(m):
+    if m == '1':    #Set home
+        Sethome()
+    elif m == '2':  #Capture
+        Capture()
+    elif m == '3':  #Catch
+        Catch()
+    elif m == '4':  #Move
+        Move()
+    
+def Link():
+    print("LUNA Link start!")
+    while True:
+        print("/////////////////////\nInput Mode You want\n 1: Set home\n 2: Capture\n 3: Catch\n 4: Move\n done: to Out of Link\n/////////////////////")
+        m = input("Mode(1/2/3/4):")
+        if m == 'done':
+            serialPic.rts = 1
+            print('Out of Link LUNA ;(')
+            break
+        elif m == 'r':
+            Reset()
+        elif m in ['1','2','3','4']:
+            print('Mode: '+m)
+            Mode(m)
+        else:
+            print('Invalid Input')
+    
+Link()
