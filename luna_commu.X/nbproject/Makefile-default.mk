@@ -57,17 +57,17 @@ OBJECTDIR=build/${CND_CONF}/${IMAGE_TYPE}
 DISTDIR=dist/${CND_CONF}/${IMAGE_TYPE}
 
 # Source Files Quoted if spaced
-SOURCEFILES_QUOTED_IF_SPACED=main_commu.c
+SOURCEFILES_QUOTED_IF_SPACED=test_main.c
 
 # Object Files Quoted if spaced
-OBJECTFILES_QUOTED_IF_SPACED=${OBJECTDIR}/main_commu.o
-POSSIBLE_DEPFILES=${OBJECTDIR}/main_commu.o.d
+OBJECTFILES_QUOTED_IF_SPACED=${OBJECTDIR}/test_main.o
+POSSIBLE_DEPFILES=${OBJECTDIR}/test_main.o.d
 
 # Object Files
-OBJECTFILES=${OBJECTDIR}/main_commu.o
+OBJECTFILES=${OBJECTDIR}/test_main.o
 
 # Source Files
-SOURCEFILES=main_commu.c
+SOURCEFILES=test_main.c
 
 
 
@@ -95,20 +95,20 @@ MP_LINKER_FILE_OPTION=,--script=p33FJ64MC802.gld
 # ------------------------------------------------------------------------------------
 # Rules for buildStep: compile
 ifeq ($(TYPE_IMAGE), DEBUG_RUN)
-${OBJECTDIR}/main_commu.o: main_commu.c  nbproject/Makefile-${CND_CONF}.mk
+${OBJECTDIR}/test_main.o: test_main.c  nbproject/Makefile-${CND_CONF}.mk
 	@${MKDIR} "${OBJECTDIR}" 
-	@${RM} ${OBJECTDIR}/main_commu.o.d 
-	@${RM} ${OBJECTDIR}/main_commu.o 
-	${MP_CC} $(MP_EXTRA_CC_PRE)  main_commu.c  -o ${OBJECTDIR}/main_commu.o  -c -mcpu=$(MP_PROCESSOR_OPTION)  -MMD -MF "${OBJECTDIR}/main_commu.o.d"      -g -D__DEBUG -D__MPLAB_DEBUGGER_PK3=1    -omf=elf -DXPRJ_default=$(CND_CONF)  -legacy-libc  $(COMPARISON_BUILD)  -O0 -msmart-io=1 -Wall -msfr-warn=off    -mdfp="${DFP_DIR}/xc16"
-	@${FIXDEPS} "${OBJECTDIR}/main_commu.o.d" $(SILENT)  -rsi ${MP_CC_DIR}../ 
+	@${RM} ${OBJECTDIR}/test_main.o.d 
+	@${RM} ${OBJECTDIR}/test_main.o 
+	${MP_CC} $(MP_EXTRA_CC_PRE)  test_main.c  -o ${OBJECTDIR}/test_main.o  -c -mcpu=$(MP_PROCESSOR_OPTION)  -MMD -MF "${OBJECTDIR}/test_main.o.d"      -g -D__DEBUG -D__MPLAB_DEBUGGER_PK3=1    -omf=elf -DXPRJ_default=$(CND_CONF)  -legacy-libc  $(COMPARISON_BUILD)  -O0 -msmart-io=1 -Wall -msfr-warn=off    -mdfp="${DFP_DIR}/xc16"
+	@${FIXDEPS} "${OBJECTDIR}/test_main.o.d" $(SILENT)  -rsi ${MP_CC_DIR}../ 
 	
 else
-${OBJECTDIR}/main_commu.o: main_commu.c  nbproject/Makefile-${CND_CONF}.mk
+${OBJECTDIR}/test_main.o: test_main.c  nbproject/Makefile-${CND_CONF}.mk
 	@${MKDIR} "${OBJECTDIR}" 
-	@${RM} ${OBJECTDIR}/main_commu.o.d 
-	@${RM} ${OBJECTDIR}/main_commu.o 
-	${MP_CC} $(MP_EXTRA_CC_PRE)  main_commu.c  -o ${OBJECTDIR}/main_commu.o  -c -mcpu=$(MP_PROCESSOR_OPTION)  -MMD -MF "${OBJECTDIR}/main_commu.o.d"        -g -omf=elf -DXPRJ_default=$(CND_CONF)  -legacy-libc  $(COMPARISON_BUILD)  -O0 -msmart-io=1 -Wall -msfr-warn=off    -mdfp="${DFP_DIR}/xc16"
-	@${FIXDEPS} "${OBJECTDIR}/main_commu.o.d" $(SILENT)  -rsi ${MP_CC_DIR}../ 
+	@${RM} ${OBJECTDIR}/test_main.o.d 
+	@${RM} ${OBJECTDIR}/test_main.o 
+	${MP_CC} $(MP_EXTRA_CC_PRE)  test_main.c  -o ${OBJECTDIR}/test_main.o  -c -mcpu=$(MP_PROCESSOR_OPTION)  -MMD -MF "${OBJECTDIR}/test_main.o.d"        -g -omf=elf -DXPRJ_default=$(CND_CONF)  -legacy-libc  $(COMPARISON_BUILD)  -O0 -msmart-io=1 -Wall -msfr-warn=off    -mdfp="${DFP_DIR}/xc16"
+	@${FIXDEPS} "${OBJECTDIR}/test_main.o.d" $(SILENT)  -rsi ${MP_CC_DIR}../ 
 	
 endif
 

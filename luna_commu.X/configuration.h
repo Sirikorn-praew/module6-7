@@ -31,6 +31,11 @@
 #ifndef XC_HEADER_TEMPLATE_H
 #define	XC_HEADER_TEMPLATE_H
 
+
+// DSPIC33FJ64MC802 Configuration Bit Settings
+
+// 'C' source line config statements
+
 // FBS
 #pragma config BWRP = WRPROTECT_OFF     // Boot Segment Write Protect (Boot Segment may be written)
 #pragma config BSS = NO_FLASH           // Boot Segment Program Flash Code Protection (No Boot program Flash segment)
@@ -46,14 +51,14 @@
 #pragma config GSS = OFF                // General Segment Code Protection (User program memory is not code-protected)
 
 // FOSCSEL
-#pragma config FNOSC = LPRCDIVN         // Oscillator Mode (Internal Fast RC (FRC) with divide by N)
+#pragma config FNOSC = FRC              // Oscillator Mode (Internal Fast RC (FRC))
 #pragma config IESO = ON                // Internal External Switch Over Mode (Start-up device with FRC, then automatically switch to user-selected oscillator source when ready)
 
 // FOSC
 #pragma config POSCMD = NONE            // Primary Oscillator Source (Primary Oscillator Disabled)
-#pragma config OSCIOFNC = ON            // OSC2 Pin Function (OSC2 pin has digital I/O function)
-#pragma config IOL1WAY = OFF            // Peripheral Pin Select Configuration (Allow Multiple Re-configurations)
-#pragma config FCKSM = CSECME           // Clock Switching and Monitor (Both Clock Switching and Fail-Safe Clock Monitor are disabled)
+#pragma config OSCIOFNC = OFF           // OSC2 Pin Function (OSC2 pin has clock out function)
+#pragma config IOL1WAY = OFF            //*
+#pragma config FCKSM = CSECME           // Clock Switching and Monitor (Both Clock Switching and Fail-Safe Clock Monitor are enabled)
 
 // FWDT
 #pragma config WDTPOST = PS32768        // Watchdog Timer Postscaler (1:32,768)
@@ -71,7 +76,6 @@
 // FICD
 #pragma config ICS = PGD1               // Comm Channel Select (Communicate on PGC1/EMUC1 and PGD1/EMUD1)
 #pragma config JTAGEN = OFF             // JTAG Port Enable (JTAG is Disabled)
-  
 
 // TODO Insert appropriate #include <>
 
