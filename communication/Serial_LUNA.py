@@ -75,7 +75,11 @@ def Move():
         if z == 'q':
             print('quit')
             break
-        byteL = toByte(x,y,z,0)
+        a = input("Angular : ")
+        if a == 'q':
+            print('quit')
+            break
+        byteL = toByte(x,y,z,a)
         byteL.append(0)
         data = [255,244,byteL[0],byteL[1],byteL[2],byteL[3],byteL[4],byteL[5],byteL[6],byteL[7],byteL[8]]    #"FF,F4" + x + y + z
         print(data)
