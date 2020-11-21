@@ -30,10 +30,18 @@
 #define kp_y 2
 #define ki_y 0
 #define kd_y 0
-#define k 78.26
+#define k 150
 double setpoint_x = (long int) 0;
 double setpoint_y = (long int) 0;
 uint16_t posx = 0, posy = 0;
+
+//traj.
+volatile double T, t; //global
+volatile double theta;
+volatile double c0, c1, c, c2, c3;
+volatile double rt;
+volatile double rf;
+volatile long int x0=0,y0=0;
 
 volatile char home_y_state = 0;
 volatile char home_x_state = 0;
@@ -357,6 +365,14 @@ void __attribute__((interrupt, no_auto_psv)) _INT2Interrupt(void) {
 } //interrupt 2 function
 
 void __attribute__((interrupt, no_auto_psv)) _T1Interrupt(void) {
+    
+    //traj.
+    if (state == 5) {
+        rt = c0 + c1 * t + c2 * t*t + c3 * t*t*t;
+        setpoint_x = x0 + rt * cos(theta);
+        setpoint_y = y0 + rt * sin(theta);
+        t += 0.005;
+    }
     //position control 
     static long int prev_error_x = 0, i_term_x = 0, prev_error_y = 0, i_term_y = 0;
     long int pwm_x = 0, pwm_y = 0;
@@ -441,7 +457,7 @@ void __attribute__((interrupt, no_auto_psv)) _DMA0Interrupt(void) {
 }
 
 void __attribute__((interrupt, no_auto_psv)) _DMA1Interrupt(void) {
-    
+
     //sent data to arduino
     memcpy(&Buffer_nano_out, &Buffer_in, sizeof (Buffer_in));
     DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
@@ -468,31 +484,25 @@ void __attribute__((interrupt, no_auto_psv)) _DMA1Interrupt(void) {
             state = 3;
         } else if (Buffer_in[1] == 0xF4) {
             //move to
+            posx = (Buffer_in[2] << 8) + Buffer_in[3];
+            posy = (Buffer_in[4] << 8) + Buffer_in[5];
             state = 4;
         } else if (Buffer_in[1] == 0xF5) {
-            static long int x0,xf,y0,yf,delta_x,delta_y;
-            static double T,t; //global
-            double = theta;
-            x0 = POS1CNT;
-            y0 = POS2CNT;
+            static long int  xf, yf, delta_x, delta_y;
             xf = (Buffer_in[2] << 8) + Buffer_in[3];
             xf *= k;
             yf = (Buffer_in[4] << 8) + Buffer_in[5];
             yf *= k;
             delta_x = xf - x0;
             delta_y = yf - y0;
+            rf = sqrt(delta_x * delta_x + delta_y * delta_y);
             theta = atan2(delta_y, delta_x);
+            T = rf / 20;
             c0 = 0;
             c1 = 0;
-            float dist = sqrt(delta_x*delta_x + delta_y*delta_y);
-            T = dist / 20;
-            c2 = (3 / T*T) * dist       double
-            c3 = (-2 / T*T*T) * dist;  double
+            c2 = (3 / (T * T)) * rf;
+            c3 = (-2 / (T * T * T)) * rf;
             t = 0;
-             double rt = c0 + c1 * (t) + c2 * (t - t0)^2 + c3 * (t - t0)^3; //control loop
-            setpoint_x = x0 + rt * cos(theta);
-            setpoint_y = y0 + rt * sin(theta);
-            t += 0.005;
             state = 5;
         } else if (Buffer_in[1] == 0xFF) {
             state = 255;
@@ -693,12 +703,19 @@ int main(void) {
             } else if (state == 4) {
                 sprintf(Buffer_out, "state = 4 ");
                 print_uart1();
+                setpoint_x = (long int) (posx * k);
+                setpoint_y = (long int) (posy * k);
                 state = 0;
             }
-            eles if (state == 5) {
+            else if (state == 5) {
                 sprintf(Buffer_out, "state = 5 ");
                 print_uart1();
-                //tajec move
+                //traj move
+                if(t == T){
+                    x0 = setpoint_x;
+                    y0 = setpoint_y;
+                    state=0;
+                }           
             } else if (state == 255) {
                 sprintf(Buffer_out, "state extra ");
                 print_uart1();
