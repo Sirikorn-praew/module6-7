@@ -36,12 +36,12 @@ double setpoint_y = (long int) 0;
 uint16_t posx = 0, posy = 0;
 
 //traj.
-volatile double T, t; //global
+volatile double T, t;
 volatile double theta;
 volatile double c0, c1, c, c2, c3;
-volatile double rt;
-volatile double rf;
-volatile long int x0=0,y0=0;
+volatile double rt=0.0;
+volatile double rf=0.0;
+volatile long int x0, y0;
 
 volatile char home_y_state = 0;
 volatile char home_x_state = 0;
@@ -365,12 +365,14 @@ void __attribute__((interrupt, no_auto_psv)) _INT2Interrupt(void) {
 } //interrupt 2 function
 
 void __attribute__((interrupt, no_auto_psv)) _T1Interrupt(void) {
-    
+
     //traj.
     if (state == 5) {
-        rt = c0 + c1 * t + c2 * t*t + c3 * t*t*t;
+        rt = c0 + c1 * t + c2 * t * t + c3 * t * t*t;
         setpoint_x = x0 + rt * cos(theta);
         setpoint_y = y0 + rt * sin(theta);
+        setpoint_x *= k;
+        setpoint_y *= k;
         t += 0.005;
     }
     //position control 
@@ -449,6 +451,8 @@ void __attribute__((interrupt, no_auto_psv)) _T1Interrupt(void) {
             OC2RS = pwm_y;
         }
     }
+//    sprintf(Buffer_out, "%f ", t);
+//    print_uart1();
     _T1IF = 0;
 } //timer 1 :position control PID
 
@@ -468,7 +472,9 @@ void __attribute__((interrupt, no_auto_psv)) _DMA1Interrupt(void) {
     DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
     DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
     DMA2REQbits.FORCE = 1;
-
+    
+    static long int xf, yf, delta_x, delta_y;
+    
     //state
     if (Buffer_in[0] == 0xFF) {
         if (Buffer_in[1] == 0xF0) {
@@ -488,23 +494,45 @@ void __attribute__((interrupt, no_auto_psv)) _DMA1Interrupt(void) {
             posy = (Buffer_in[4] << 8) + Buffer_in[5];
             state = 4;
         } else if (Buffer_in[1] == 0xF5) {
-            static long int  xf, yf, delta_x, delta_y;
+            T1CONbits.TON = 0;
             xf = (Buffer_in[2] << 8) + Buffer_in[3];
-            xf *= k;
             yf = (Buffer_in[4] << 8) + Buffer_in[5];
-            yf *= k;
             delta_x = xf - x0;
             delta_y = yf - y0;
-            rf = sqrt(delta_x * delta_x + delta_y * delta_y);
+            rf = sqrt((delta_x * delta_x) + (delta_y * delta_y));
             theta = atan2(delta_y, delta_x);
-            T = rf / 20;
+            T = rf / 12000.0;
             c0 = 0;
             c1 = 0;
-            c2 = (3 / (T * T)) * rf;
-            c3 = (-2 / (T * T * T)) * rf;
+            c2 = (3.0 / (T * T)) * rf;
+            c3 = (-2.0 / (T * T * T)) * rf;
             t = 0;
+            sprintf(Buffer_out, "%f     %f  %ld  %ld",rf, T,x0,y0);
+            print_uart1();
+            delay(1500);
+            T1CONbits.TON = 1;
             state = 5;
-        } else if (Buffer_in[1] == 0xFF) {
+        } 
+        else if (Buffer_in[1] == 0xF6) {
+            T1CONbits.TON = 0;
+            xf = (Buffer_in[2] << 8) + Buffer_in[3];
+            yf = (Buffer_in[4] << 8) + Buffer_in[5];
+            delta_x = xf - x0;
+            delta_y = yf - y0;
+            rf = sqrt((delta_x * delta_x) + (delta_y * delta_y));
+            theta = atan2(delta_y, delta_x);
+            T = rf / 12000.0;
+            c0 = 0;
+            c1 = 0;
+            c2 = (3.0 / (T * T)) * rf;
+            c3 = (-2.0 / (T * T * T)) * rf;
+            t = 0;
+            sprintf(Buffer_out, "%f     %f  %ld  %ld",rf, T,x0,y0);
+            print_uart1();
+            delay(1500);
+            T1CONbits.TON = 1;
+            state = 5;
+        }else if (Buffer_in[1] == 0xFF) {
             state = 255;
         }
 
@@ -679,55 +707,56 @@ int main(void) {
 
     //main program
     while (1) {
-        if (state != old_state) {
-            if (state == 0) {
-                sprintf(Buffer_out, "state = 0 ");
-                print_uart1();
-            } else if (state == 1) {
-                sprintf(Buffer_out, "state = 1 ");
-                print_uart1();
-                wait_ack_nano(0xB1);
-                comebackhome();
-                state_ack_nano = 0;
-                state = 0;
-            } else if (state == 2) {
-                sprintf(Buffer_out, "state = 2 ");
-                print_uart1();
-                //capture();
-                state = 0;
-            } else if (state == 3) {
-                sprintf(Buffer_out, "state = 3 ");
-                print_uart1();
-                //catch();
-                state = 0;
-            } else if (state == 4) {
-                sprintf(Buffer_out, "state = 4 ");
-                print_uart1();
-                setpoint_x = (long int) (posx * k);
-                setpoint_y = (long int) (posy * k);
-                state = 0;
-            }
-            else if (state == 5) {
-                sprintf(Buffer_out, "state = 5 ");
-                print_uart1();
-                //traj move
-                if(t == T){
-                    x0 = setpoint_x;
-                    y0 = setpoint_y;
-                    state=0;
-                }           
-            } else if (state == 255) {
-                sprintf(Buffer_out, "state extra ");
-                print_uart1();
-                delay(1000);
-                sent_ack_nano(0xCC);
-                sprintf(Buffer_out, "complete");
-                print_uart1();
-                state_ack_nano = 0;
+        if (state == 0) {
+//            sprintf(Buffer_out, "state = 0 ");
+//            print_uart1();
+        } else if (state == 1) {
+            sprintf(Buffer_out, "state = 1 ");
+            print_uart1();
+            wait_ack_nano(0xB1);
+            comebackhome();
+            state_ack_nano = 0;
+            state = 0;
+        } else if (state == 2) {
+            sprintf(Buffer_out, "state = 2 ");
+            print_uart1();
+            //capture();
+            state = 0;
+        } else if (state == 3) {
+            sprintf(Buffer_out, "state = 3 ");
+            print_uart1();
+            //catch();
+            state = 0;
+        } else if (state == 4) {
+            sprintf(Buffer_out, "state = 4 ");
+            print_uart1();
+            setpoint_x = (long int) (posx * k);
+            setpoint_y = (long int) (posy * k);
+            state = 0;
+        } else if (state == 5) {
+//            sprintf(Buffer_out, "state = 5 ");
+//            print_uart1();
+            //traj move
+            if ((double) t >= (double) T) {
+                x0 = (POS1CNT)/k;
+                y0 = (POS2CNT)/k;
+//                sprintf(Buffer_out, "%u",x0);
+//                print_uart1();
+//                sprintf(Buffer_out, "%u",y0);
+//                print_uart1();
                 state = 0;
             }
-            old_state = state;
+        } else if (state == 255) {
+            sprintf(Buffer_out, "state extra ");
+            print_uart1();
+            delay(1000);
+            sent_ack_nano(0xCC);
+            sprintf(Buffer_out, "complete");
+            print_uart1();
+            state_ack_nano = 0;
+            state = 0;
         }
+        old_state = state;
     }
     return 0;
 }
