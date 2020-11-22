@@ -39,8 +39,8 @@ uint16_t posx = 0, posy = 0;
 volatile double T, t;
 volatile double theta;
 volatile double c0, c1, c, c2, c3;
-volatile double rt=0.0;
-volatile double rf=0.0;
+volatile double rt = 0.0;
+volatile double rf = 0.0;
 volatile long int x0, y0;
 
 volatile char home_y_state = 0;
@@ -49,11 +49,13 @@ volatile char home_x_state = 0;
 volatile unsigned char state = 0;
 volatile unsigned char old_state = 0;
 volatile unsigned char state_ack_nano = 0;
-volatile unsigned char state_ack = 0;
+volatile unsigned char state_ack_com = 0;
+volatile unsigned char state_ack_end = 0;
 unsigned char Buffer_in[50] __attribute__((space(dma)));
 unsigned char Buffer_out[50] __attribute__((space(dma)));
 unsigned char Buffer_nano_in[50] __attribute__((space(dma)));
 unsigned char Buffer_nano_out[50] __attribute__((space(dma)));
+
 
 void initPLL() {
     PLLFBD = 63; // M  = 152
@@ -401,362 +403,344 @@ void __attribute__((interrupt, no_auto_psv)) _T1Interrupt(void) {
             _LATA0 = 1; //A=0
             _LATA1 = 1; //B=1
             OC1RS = 0;
+            } else {
+                _LATA0 = 0; //A=0
+                _LATA1 = 1; //B=1
+                OC1RS = PR2;
+            }
         } else {
+            if (now_error_x > 0) {
+                _LATA0 = 1; //A=0
+                _LATA1 = 0; //B=1
+                OC1RS = pwm_x;
+            } else if (now_error_x >= -500 && now_error_x <= 500) {
+                _LATA0 = 1; //A=0
+                _LATA1 = 1; //B=1
+                OC1RS = 0;
+            } else {
+                _LATA0 = 0; //A=0
+                _LATA1 = 1; //B=1
+                OC1RS = pwm_x;
+            }
+        }
+        if (pwm_y >= PR2) {
+            if (now_error_y > 0) {
+                _LATB13 = 1; //A=0
+                _LATB15 = 0; //B=1
+                OC2RS = PR2;
+            } else if (now_error_y >= -500 && now_error_y <= 500) {
+                _LATB13 = 1; //A=0
+                _LATB15 = 1; //B=1
+                OC2RS = 0;
+            } else {
+                _LATB13 = 0; //A=0
+                _LATB15 = 1; //B=1
+                OC2RS = PR2;
+            }
+        } else {
+            if (now_error_y > 0) {
+                _LATB13 = 1; //A=0
+                _LATB15 = 0; //B=1
+                OC2RS = pwm_y;
+            } else if (now_error_y >= -500 && now_error_y <= 500) {
+                _LATB13 = 1; //A=0
+                _LATB15 = 1; //B=1
+                OC2RS = 0;
+            } else {
+                _LATB13 = 0; //A=0
+                _LATB15 = 1; //B=1
+                OC2RS = pwm_y;
+            }
+        }
+        //    sprintf(Buffer_out, "%f ", t);
+        //    print_uart1();
+        _T1IF = 0;
+    } //timer 1 :position control PID
+
+    void __attribute__((interrupt, no_auto_psv)) _DMA0Interrupt(void) {
+        IFS0bits.DMA0IF = 0; // Clear the DMA0 Interrupt Flag;
+    }
+
+    void __attribute__((interrupt, no_auto_psv)) _DMA1Interrupt(void) {
+
+        //sent data to arduino
+        memcpy(&Buffer_nano_out, &Buffer_in, sizeof (Buffer_in));
+        DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
+        DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
+        DMA2REQbits.FORCE = 1;
+        delay(100);
+        memcpy(&Buffer_nano_out, &Buffer_in, sizeof (Buffer_in));
+        DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
+        DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
+        DMA2REQbits.FORCE = 1;
+
+        static long int xf, yf, delta_x, delta_y;
+
+        //state
+        if (Buffer_in[0] == 0xFF) {
+            if (Buffer_in[1] == 0xF0) {
+                state = 0;
+            } else if (Buffer_in[1] == 0xF1) {
+                //home
+                state = 1;
+            } else if (Buffer_in[1] == 0xF2) {
+                //capture
+                state = 2;
+            } else if (Buffer_in[1] == 0xF3) {
+                //catch 
+                state = 3;
+            } else if (Buffer_in[1] == 0xF4) {
+                //move to
+                posx = (Buffer_in[2] << 8) + Buffer_in[3];
+                posy = (Buffer_in[4] << 8) + Buffer_in[5];
+                state = 4;
+            } else if (Buffer_in[1] == 0xF5) {
+                T1CONbits.TON = 0;
+                xf = (Buffer_in[2] << 8) + Buffer_in[3];
+                yf = (Buffer_in[4] << 8) + Buffer_in[5];
+                delta_x = xf - x0;
+                delta_y = yf - y0;
+                rf = sqrt((delta_x * delta_x) + (delta_y * delta_y));
+                theta = atan2(delta_y, delta_x);
+                T = rf / 620.0;
+                c0 = 0;
+                c1 = 0;
+                c2 = (3.0 / (T * T)) * rf;
+                c3 = (-2.0 / (T * T * T)) * rf;
+                t = 0;
+                sprintf(Buffer_out, "%f %f  %ld  %ld", rf, T, x0, y0);
+                print_uart1();
+                delay(1500);
+                T1CONbits.TON = 1;
+                state = 5;
+            }  else if (Buffer_in[1] == 0xAA) {
+                state_ack_com = Buffer_in[2];
+                state_ack_end = Buffer_in[3];
+            } else if (Buffer_in[1] == 0xFF) {
+                state = 255;
+            }
+        }
+        IFS0bits.DMA1IF = 0; // Clear the DMA1 Interrupt Flag
+    }
+
+    void __attribute__((interrupt, no_auto_psv)) _DMA2Interrupt(void) {
+        IFS1bits.DMA2IF = 0; // Clear the DMA0 Interrupt Flag;
+    }
+
+    void __attribute__((interrupt, no_auto_psv)) _DMA3Interrupt(void) {
+        if (Buffer_nano_in[0] == 0xFF) {
+            if (Buffer_nano_in[1] == 0xAA) {
+                state_ack_nano = Buffer_nano_in[2];
+            } else if (Buffer_nano_in[1] == 0x99) {
+                //coming soon !
+                //nop();
+            }
+        }
+        IFS2bits.DMA3IF = 0; // Clear the DMA0 Interrupt Flag;
+    }
+
+
+    //function
+    //////// movement function /////////
+
+    void motorX_drive(char motor_state, char duty_cycle) {
+        if (motor_state == -1) {
             _LATA0 = 0; //A=0
             _LATA1 = 1; //B=1
-            OC1RS = PR2;
-        }
-    } else {
-        if (now_error_x > 0) {
+            OC1RS = (PR2 / 100) * duty_cycle;
+        } else if (motor_state == 0) { //A=0 B=0
             _LATA0 = 1; //A=0
-            _LATA1 = 0; //B=1
-            OC1RS = pwm_x;
-        } else if (now_error_x >= -500 && now_error_x <= 500) {
-
-            _LATA0 = 1; //A=0
-            _LATA1 = 1; //B=1
+            _LATA1 = 1; //B=0
             OC1RS = 0;
-        } else {
-            _LATA0 = 0; //A=0
-            _LATA1 = 1; //B=1
-            OC1RS = pwm_x;
+        } else if (motor_state == 1) { //A=1 B=0
+            _LATA0 = 1; //A=1
+            _LATA1 = 0; //B=0
+            OC1RS = (PR2 / 100) * duty_cycle;
         }
     }
-    if (pwm_y >= PR2) {
-        if (now_error_y > 0) {
-            _LATB13 = 1; //A=0
-            _LATB15 = 0; //B=1
-            OC2RS = PR2;
-        } else if (now_error_y >= -500 && now_error_y <= 500) {
-            _LATB13 = 1; //A=0
-            _LATB15 = 1; //B=1
-            OC2RS = 0;
-        } else {
+
+    void motorY_drive(char motor_state, char duty_cycle) {
+        if (motor_state == -1) { //A=0 B=1
             _LATB13 = 0; //A=0
             _LATB15 = 1; //B=1
-            OC2RS = PR2;
-        }
-    } else {
-        if (now_error_y > 0) {
+            OC2RS = (PR2 / 100) * duty_cycle;
+        } else if (motor_state == 0) { //A=0 B=0
             _LATB13 = 1; //A=0
-            _LATB15 = 0; //B=1
-            OC2RS = pwm_y;
-        } else if (now_error_y >= -500 && now_error_y <= 500) {
-            _LATB13 = 1; //A=0
-            _LATB15 = 1; //B=1
+            _LATB15 = 1; //B=0
             OC2RS = 0;
-        } else {
-            _LATB13 = 0; //A=0
-            _LATB15 = 1; //B=1
-            OC2RS = pwm_y;
+        } else if (motor_state == 1) { //A=1 B=0
+            _LATB13 = 1; //A=1
+            _LATB15 = 0; //B=0
+            OC2RS = (PR2 / 100) * duty_cycle;
         }
     }
-//    sprintf(Buffer_out, "%f ", t);
-//    print_uart1();
-    _T1IF = 0;
-} //timer 1 :position control PID
 
-void __attribute__((interrupt, no_auto_psv)) _DMA0Interrupt(void) {
-    IFS0bits.DMA0IF = 0; // Clear the DMA0 Interrupt Flag;
-}
+    //////// communication function /////////
 
-void __attribute__((interrupt, no_auto_psv)) _DMA1Interrupt(void) {
-
-    //sent data to arduino
-    memcpy(&Buffer_nano_out, &Buffer_in, sizeof (Buffer_in));
-    DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
-    DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
-    DMA2REQbits.FORCE = 1;
-    delay(100);
-    memcpy(&Buffer_nano_out, &Buffer_in, sizeof (Buffer_in));
-    DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
-    DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
-    DMA2REQbits.FORCE = 1;
-    
-    static long int xf, yf, delta_x, delta_y;
-    
-    //state
-    if (Buffer_in[0] == 0xFF) {
-        if (Buffer_in[1] == 0xF0) {
-            state = 0;
-        } else if (Buffer_in[1] == 0xF1) {
-            //home
-            state = 1;
-        } else if (Buffer_in[1] == 0xF2) {
-            //capture
-            state = 2;
-        } else if (Buffer_in[1] == 0xF3) {
-            //catch 
-            state = 3;
-        } else if (Buffer_in[1] == 0xF4) {
-            //move to
-            posx = (Buffer_in[2] << 8) + Buffer_in[3];
-            posy = (Buffer_in[4] << 8) + Buffer_in[5];
-            state = 4;
-        } else if (Buffer_in[1] == 0xF5) {
-            T1CONbits.TON = 0;
-            xf = (Buffer_in[2] << 8) + Buffer_in[3];
-            yf = (Buffer_in[4] << 8) + Buffer_in[5];
-            delta_x = xf - x0;
-            delta_y = yf - y0;
-            rf = sqrt((delta_x * delta_x) + (delta_y * delta_y));
-            theta = atan2(delta_y, delta_x);
-            T = rf / 12000.0;
-            c0 = 0;
-            c1 = 0;
-            c2 = (3.0 / (T * T)) * rf;
-            c3 = (-2.0 / (T * T * T)) * rf;
-            t = 0;
-            sprintf(Buffer_out, "%f     %f  %ld  %ld",rf, T,x0,y0);
-            print_uart1();
-            delay(1500);
-            T1CONbits.TON = 1;
-            state = 5;
-        } 
-        else if (Buffer_in[1] == 0xF6) {
-            T1CONbits.TON = 0;
-            xf = (Buffer_in[2] << 8) + Buffer_in[3];
-            yf = (Buffer_in[4] << 8) + Buffer_in[5];
-            delta_x = xf - x0;
-            delta_y = yf - y0;
-            rf = sqrt((delta_x * delta_x) + (delta_y * delta_y));
-            theta = atan2(delta_y, delta_x);
-            T = rf / 12000.0;
-            c0 = 0;
-            c1 = 0;
-            c2 = (3.0 / (T * T)) * rf;
-            c3 = (-2.0 / (T * T * T)) * rf;
-            t = 0;
-            sprintf(Buffer_out, "%f     %f  %ld  %ld",rf, T,x0,y0);
-            print_uart1();
-            delay(1500);
-            T1CONbits.TON = 1;
-            state = 5;
-        }else if (Buffer_in[1] == 0xFF) {
-            state = 255;
-        }
-
+    void print_uart1() {
+        DMA0STA = __builtin_dmaoffset(Buffer_out);
+        DMA0CNT = strlen(Buffer_out) - 1;
+        DMA0CONbits.CHEN = 1; // Re-enable DMA0 Channel
+        DMA0REQbits.FORCE = 1; // Manual mode: Kick-start the first transfer
     }
-    IFS0bits.DMA1IF = 0; // Clear the DMA1 Interrupt Flag
-}
 
-void __attribute__((interrupt, no_auto_psv)) _DMA2Interrupt(void) {
-    IFS1bits.DMA2IF = 0; // Clear the DMA0 Interrupt Flag;
-}
+    void print_uart2() {
+        DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
+        DMA2CNT = strlen(Buffer_nano_out) - 1;
+        DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
+        DMA2REQbits.FORCE = 1; // Manual mode: Kick-start the first transfer
+    }
 
-void __attribute__((interrupt, no_auto_psv)) _DMA3Interrupt(void) {
-    if (Buffer_nano_in[0] == 0xFF) {
-        if (Buffer_nano_in[1] == 0xAA) {
-            state_ack_nano = Buffer_nano_in[2];
-        } else if (Buffer_nano_in[1] == 0x99) {
-            //coming soon !
-            //nop();
+    void sent_ack_nano(unsigned char ack) {
+        U2TXREG = ack;
+    }
+
+    void sent_ack_com(unsigned char ack) {
+        U1TXREG = ack;
+    }
+
+    void wait_ack_nano(unsigned char ack) {
+        while (state_ack_nano != ack) {
         }
     }
-    IFS2bits.DMA3IF = 0; // Clear the DMA0 Interrupt Flag;
-}
 
-
-//function
-//////// movement function /////////
-
-void motorX_drive(char motor_state, char duty_cycle) {
-    if (motor_state == -1) {
-        _LATA0 = 0; //A=0
-        _LATA1 = 1; //B=1
-        OC1RS = (PR2 / 100) * duty_cycle;
-    } else if (motor_state == 0) { //A=0 B=0
-        _LATA0 = 1; //A=0
-        _LATA1 = 1; //B=0
-        OC1RS = 0;
-    } else if (motor_state == 1) { //A=1 B=0
-        _LATA0 = 1; //A=1
-        _LATA1 = 0; //B=0
-        OC1RS = (PR2 / 100) * duty_cycle;
+    void wait_ack_com(unsigned char ack) {
+        while (state_ack_com != ack) {
+        }
     }
-}
-
-void motorY_drive(char motor_state, char duty_cycle) {
-    if (motor_state == -1) { //A=0 B=1
-        _LATB13 = 0; //A=0
-        _LATB15 = 1; //B=1
-        OC2RS = (PR2 / 100) * duty_cycle;
-    } else if (motor_state == 0) { //A=0 B=0
-        _LATB13 = 1; //A=0
-        _LATB15 = 1; //B=0
-        OC2RS = 0;
-    } else if (motor_state == 1) { //A=1 B=0
-        _LATB13 = 1; //A=1
-        _LATB15 = 0; //B=0
-        OC2RS = (PR2 / 100) * duty_cycle;
-    }
-}
-
-//////// communication function /////////
-
-void print_uart1() {
-    DMA0STA = __builtin_dmaoffset(Buffer_out);
-    DMA0CNT = strlen(Buffer_out) - 1;
-    DMA0CONbits.CHEN = 1; // Re-enable DMA0 Channel
-    DMA0REQbits.FORCE = 1; // Manual mode: Kick-start the first transfer
-}
-
-void print_uart2() {
-    DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
-    DMA2CNT = strlen(Buffer_nano_out) - 1;
-    DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
-    DMA2REQbits.FORCE = 1; // Manual mode: Kick-start the first transfer
-}
-
-void sent_ack_nano(unsigned char ack) {
-    U2TXREG = ack;
-}
-
-void wait_ack_nano(unsigned char ack) {
-    while (state_ack_nano != ack) {
-    }
-}
 
 
-/////// command function /////////
+    /////// command function /////////
 
-void comebackhome() {
-    char set_x = 0, set_y = 0;
-    //disable timer
-    T1CONbits.TON = 0;
-    //if x is already set
-    if (home_x_state == 1 && set_x == 0) {
-        motorX_drive(1, 15);
-        delay(200);
-        motorX_drive(0, 0);
-        //printf("encoder x pos : %u\n",POS1CNT);
-        set_x = 1;
-    }
-    //if y is already set
-    if (home_y_state == 1 && set_y == 0) {
-        motorY_drive(1, 20);
-        delay(200);
-        motorY_drive(0, 0);
-        //printf("encoder y pos : %u\n",POS2CNT);
-        set_y = 1;
-    }
-    //when x is not set and we want to set home X
-    while (home_x_state == 0 || set_x == 0) {
-        motorX_drive(-1, 10);
-        while (!(home_x_state == 0) && set_x == 0) {
+    void comebackhome() {
+        char set_x = 0, set_y = 0;
+        //disable timer
+        T1CONbits.TON = 0;
+        //if x is already set
+        if (home_x_state == 1 && set_x == 0) {
+            motorX_drive(1, 15);
+            delay(200);
             motorX_drive(0, 0);
-            //U1TXREG = POS1CNT;
-            //printf("encoder 1 pos : %u\n", POS1CNT);
+            //printf("encoder x pos : %u\n",POS1CNT);
             set_x = 1;
         }
-    }
-    //when y is not set and we want to set home Y
-    while (home_y_state == 0 || set_y == 0) {
-        motorY_drive(-1, 15);
+        //if y is already set
         if (home_y_state == 1 && set_y == 0) {
+            motorY_drive(1, 20);
+            delay(200);
             motorY_drive(0, 0);
-            //U1TXREG = POS2CNT;
-            //printf("encoder 2 pos : %u\n", POS2CNT);
+            //printf("encoder y pos : %u\n",POS2CNT);
             set_y = 1;
         }
+        //when x is not set and we want to set home X
+        while (home_x_state == 0 || set_x == 0) {
+            motorX_drive(-1, 10);
+            while (!(home_x_state == 0) && set_x == 0) {
+                motorX_drive(0, 0);
+                //U1TXREG = POS1CNT;
+                //printf("encoder 1 pos : %u\n", POS1CNT);
+                set_x = 1;
+            }
+        }
+        //when y is not set and we want to set home Y
+        while (home_y_state == 0 || set_y == 0) {
+            motorY_drive(-1, 15);
+            if (home_y_state == 1 && set_y == 0) {
+                motorY_drive(0, 0);
+                //U1TXREG = POS2CNT;
+                //printf("encoder 2 pos : %u\n", POS2CNT);
+                set_y = 1;
+            }
+        }
+        if (set_x == 1 && set_y == 1) {
+            motorX_drive(1, 10);
+            motorY_drive(1, 15);
+            delay(100);
+            motorX_drive(0, 0);
+            motorY_drive(0, 0);
+            delay(1000);
+            POS1CNT = 0;
+            POS2CNT = 0;
+            delay(100);
+        }
+        //on timer
+        T1CONbits.TON = 1;
     }
-    if (set_x == 1 && set_y == 1) {
-        motorX_drive(1, 10);
-        motorY_drive(1, 15);
-        delay(100);
-        motorX_drive(0, 0);
-        motorY_drive(0, 0);
-        delay(1000);
-        POS1CNT = 0;
-        POS2CNT = 0;
-        delay(100);
-    }
-    //on timer
-    T1CONbits.TON = 1;
-}
 
-//trajectory function///////
-////// Other function ////////
+    //trajectory function///////
+    ////// Other function ////////
 
-void delay(int time) {
-    int i = 0, j = 0;
-    for (i = 0; i <= time; i++) {
-        for (j = 0; j <= 4000; j++) {
+    void delay(int time) {
+        int i = 0, j = 0;
+        for (i = 0; i <= time; i++) {
+            for (j = 0; j <= 4000; j++) {
+            }
         }
     }
-}
 
-int main(void) {
-    __builtin_disable_interrupts();
-    init_all();
-    __builtin_write_OSCCONL(OSCCON & 0xBF); // to clear IOLOCK
-    RPOR2bits.RP5R = 3;
-    _U1RXR = 6;
-    RPOR2bits.RP4R = 5;
-    _U2RXR = 11;
-    __builtin_write_OSCCONL(OSCCON | 0x40); // to set IOLOCK
+    int main(void) {
+        __builtin_disable_interrupts();
+        init_all();
+        __builtin_write_OSCCONL(OSCCON & 0xBF); // to clear IOLOCK
+        RPOR2bits.RP5R = 3;
+        _U1RXR = 6;
+        RPOR2bits.RP4R = 5;
+        _U2RXR = 11;
+        __builtin_write_OSCCONL(OSCCON | 0x40); // to set IOLOCK
 
-    __builtin_enable_interrupts();
+        __builtin_enable_interrupts();
 
-    cfgDma0UartTx();
-    cfgDma2UartTx2();
-    cfgDma1UartRx();
-    cfgDma3UartRx2();
-    init_uart1();
-    init_uart2();
+        cfgDma0UartTx();
+        cfgDma2UartTx2();
+        cfgDma1UartRx();
+        cfgDma3UartRx2();
+        init_uart1();
+        init_uart2();
 
-    //main program
-    while (1) {
-        if (state == 0) {
-//            sprintf(Buffer_out, "state = 0 ");
-//            print_uart1();
-        } else if (state == 1) {
-            sprintf(Buffer_out, "state = 1 ");
-            print_uart1();
-            wait_ack_nano(0xB1);
-            comebackhome();
-            state_ack_nano = 0;
-            state = 0;
-        } else if (state == 2) {
-            sprintf(Buffer_out, "state = 2 ");
-            print_uart1();
-            //capture();
-            state = 0;
-        } else if (state == 3) {
-            sprintf(Buffer_out, "state = 3 ");
-            print_uart1();
-            //catch();
-            state = 0;
-        } else if (state == 4) {
-            sprintf(Buffer_out, "state = 4 ");
-            print_uart1();
-            setpoint_x = (long int) (posx * k);
-            setpoint_y = (long int) (posy * k);
-            state = 0;
-        } else if (state == 5) {
-//            sprintf(Buffer_out, "state = 5 ");
-//            print_uart1();
-            //traj move
-            if ((double) t >= (double) T) {
-                x0 = (POS1CNT)/k;
-                y0 = (POS2CNT)/k;
-//                sprintf(Buffer_out, "%u",x0);
-//                print_uart1();
-//                sprintf(Buffer_out, "%u",y0);
-//                print_uart1();
+        //main program
+        while (1) {
+            if (state == 0) {
+            } else if (state == 1) {
+                sprintf(Buffer_out, "state = 1 ");
+                print_uart1();
+                wait_ack_nano(0xB1);
+                comebackhome();
+                state_ack_nano = 0;
+                state = 0;
+            } else if (state == 2) {
+                sprintf(Buffer_out, "state = 2 ");
+                print_uart1();
+                //capture();
+                state = 0;
+            } else if (state == 3) {
+                sprintf(Buffer_out, "state = 3 ");
+                print_uart1();
+                //catch();
+                state = 0;
+            } else if (state == 4) {
+                sprintf(Buffer_out, "state = 4 ");
+                print_uart1();
+                setpoint_x = (long int) (posx * k);
+                setpoint_y = (long int) (posy * k);
+                state = 0;
+            } else if (state == 5) {
+                if ( t >=  T) {
+                    x0 = (POS1CNT) / k;
+                    y0 = (POS2CNT) / k;
+                    sent_ack_com(0xA6);
+                    state = 0;
+                }
+            } else if (state == 255) {
+                sprintf(Buffer_out, "state extra ");
+                print_uart1();
+                delay(1000);
+                sent_ack_nano(0xCC);
+                sprintf(Buffer_out, "complete");
+                print_uart1();
+                state_ack_nano = 0;
                 state = 0;
             }
-        } else if (state == 255) {
-            sprintf(Buffer_out, "state extra ");
-            print_uart1();
-            delay(1000);
-            sent_ack_nano(0xCC);
-            sprintf(Buffer_out, "complete");
-            print_uart1();
-            state_ack_nano = 0;
-            state = 0;
+            old_state = state;
         }
-        old_state = state;
+        return 0;
     }
-    return 0;
-}
