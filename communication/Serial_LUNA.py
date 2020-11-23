@@ -18,8 +18,8 @@ def toByte(x,y,z,a):
 def Sethome():
     data = [255,241,0,0,0,0,0,0,0,0,0]                            #"FF,F1" + x + y + z + a + g
     print(data)
+    serialPic.write(serial.to_bytes(data))
     while(True):
-        serialPic.write(serial.to_bytes(data))
         a = serialPic.readline()
         print(a)
         if serialPic.readline() != 0:
@@ -41,7 +41,7 @@ def Capture():
             serialPic.write(serial.to_bytes(spic))
             state += 1
         if spic == 99:
-            print("error")
+            print("error");[-]
             serialPic.write(serial.to_bytes(data))
             state = 1
         if spic == 242:
@@ -51,9 +51,8 @@ def Capture():
 def Catch():
     data = [255,243,0,0,1,94,0,0,0,0,0]                           #"FF,F3" + x + y + z 
     print(data)
-    # serialPic.write(serial.to_bytes(data))
+    serialPic.write(serial.to_bytes(data))
     while(True):
-        serialPic.write(serial.to_bytes(data))
         a = serialPic.readline()
         print(a)
         spic = [b for b in a][0]
@@ -85,7 +84,6 @@ def Move():
         print(data)
         serialPic.write(serial.to_bytes(data))
         while(True):
-            serialPic.write(serial.to_bytes(data))
             a = serialPic.readline()
             print(a)
             spic = [b for b in a][0]
@@ -94,19 +92,19 @@ def Move():
         print("Move to x="+ x +" , y="+ y + " , z="+ z)
         break
 
-def Reset():
+def ResetZ():
     data = [255,187,0,0,0,0,0,0,0,0,0]                            #"FF,BB" 
     print(data)
     serialPic.write(serial.to_bytes(data))
-    while(True):
-        a = serialPic.readline()
-        print(a)
-        spic = [b for b in a][0]
-        if spic == 187:
-            serialPic.rts = 1
-            time.sleep(1)
-            serialPic.rts = 0
-    print("LUNA Reset Complete")
+    # while(True):
+    #     a = serialPic.readline()
+    #     print(a)
+    #     spic = [b for b in a][0]
+    #     if spic == 187:
+    #         serialPic.rts = 1
+    #         time.sleep(1)
+    #         serialPic.rts = 0
+    print("LUNA Reset-Z Complete")
 
 def Mode(m):
     if m == '1':    #Set home
@@ -128,7 +126,12 @@ def Link():
             print('Out of Link LUNA ;(')
             break
         elif m == 'r':
-            Reset()
+            ResetZ()
+        elif m == 'rst':
+            serialPic.rts = 1
+            time.sleep(1)
+            serialPic.rts = 0
+            print("LUNA Reset-XY Complete")
         elif m in ['1','2','3','4']:
             print('Mode: '+m)
             Mode(m)
