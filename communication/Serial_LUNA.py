@@ -17,12 +17,12 @@ def toByte(x,y,z,a):
 # Data FF F_ xx xx yy yy zz zz aa aa gg
 def Sethome():
     data = [255,241,0,0,0,0,0,0,0,0,0]                            #"FF,F1" + x + y + z + a + g
-    print(data)
+    #print(data)
     serialPic.write(serial.to_bytes(data))
     while(True):
         a = serialPic.readline()
-        print(a)
-        if serialPic.readline() != 0:
+        if len(a) != 0:
+            print(a)
             spic = [b for b in a][0]
             if spic == 241:
                 break
@@ -41,7 +41,7 @@ def Capture():
             serialPic.write(serial.to_bytes(spic))
             state += 1
         if spic == 99:
-            print("error");[-]
+            print("error");
             serialPic.write(serial.to_bytes(data))
             state = 1
         if spic == 242:
@@ -49,18 +49,19 @@ def Capture():
     print("Capture Finish")
 
 def Catch():
-    data = [255,243,0,0,1,94,0,0,0,0,0]                           #"FF,F3" + x + y + z 
-    print(data)
+    data = [255,243,0,0,0,0,0,0,0,0,0]                           #"FF,F3" + x + y + z 
+    #print(data)
     serialPic.write(serial.to_bytes(data))
     while(True):
         a = serialPic.readline()
-        print(a)
-        spic = [b for b in a][0]
-        if spic == 243:
-            break
+        if len(a) != 0:
+            print(a)
+            spic = [b for b in a][0]
+            if spic == 243:
+                break
     print("Catch!")
 
-def Move():
+def Move(m):
     while True:
         x = input("X-axis : ")
         if x == 'q':
@@ -80,31 +81,42 @@ def Move():
             break
         byteL = toByte(x,y,z,a)
         byteL.append(0)
-        data = [255,244,byteL[0],byteL[1],byteL[2],byteL[3],byteL[4],byteL[5],byteL[6],byteL[7],byteL[8]]    #"FF,F4" + x + y + z
-        print(data)
+        if m == "PID":
+            data = [255,244,byteL[0],byteL[1],byteL[2],byteL[3],byteL[4],byteL[5],byteL[6],byteL[7],byteL[8]]    #"FF,F4" + x + y + z
+        if m == "Traj":
+            data = [255,245,byteL[0],byteL[1],byteL[2],byteL[3],byteL[4],byteL[5],byteL[6],byteL[7],byteL[8]]    #"FF,F5" + x + y + z
+        #print(data)
         serialPic.write(serial.to_bytes(data))
         while(True):
             a = serialPic.readline()
-            print(a)
-            spic = [b for b in a][0]
-            if spic == 244:
-                break
+            if len(a) != 0:
+                print(a)
+                spic = [b for b in a][0]
+                if m == "PID":
+                    if spic == 244:
+                        break
+                if m == "Traj":
+                    if spic == 245:
+                        break    
         print("Move to x="+ x +" , y="+ y + " , z="+ z)
         break
 
-def ResetZ():
+def Reset():
     data = [255,187,0,0,0,0,0,0,0,0,0]                            #"FF,BB" 
-    print(data)
+    #print(data)
     serialPic.write(serial.to_bytes(data))
-    # while(True):
-    #     a = serialPic.readline()
-    #     print(a)
-    #     spic = [b for b in a][0]
-    #     if spic == 187:
-    #         serialPic.rts = 1
-    #         time.sleep(1)
-    #         serialPic.rts = 0
-    print("LUNA Reset-Z Complete")
+    while(True):
+        a = serialPic.readline()
+        if len(a) != 0:
+            print(a)
+            spic = [b for b in a][0]
+            if spic == 187:
+                time.sleep(3)
+                serialPic.rts = 1
+                time.sleep(1)
+                serialPic.rts = 0
+                break   
+    print("LUNA Reset Complete")
 
 def Mode(m):
     if m == '1':    #Set home
@@ -114,25 +126,27 @@ def Mode(m):
     elif m == '3':  #Catch
         Catch()
     elif m == '4':  #Move
-        Move()
+        Move("PID")
+    elif m == '5':  #Move
+        Move("Traj")
     
 def Link():
     print("LUNA Link start!")
     while True:
-        print("/////////////////////\nInput Mode You want\n 1: Set home\n 2: Capture\n 3: Catch\n 4: Move\n done: to Out of Link\n/////////////////////")
-        m = input("Mode(1/2/3/4):")
+        print("/////////////////////\nInput Mode You want\n 1: Set home\n 2: Capture\n 3: Catch\n 4: Move PID\n 5: Move Traj\n done: to Out of Link\n/////////////////////")
+        m = input("Mode(1/2/3/4/5):")
         if m == 'done':
             serialPic.rts = 1
             print('Out of Link LUNA ;(')
             break
         elif m == 'r':
-            ResetZ()
+            Reset()
         elif m == 'rst':
             serialPic.rts = 1
             time.sleep(1)
             serialPic.rts = 0
             print("LUNA Reset-XY Complete")
-        elif m in ['1','2','3','4']:
+        elif m in ['1','2','3','4','5']:
             print('Mode: '+m)
             Mode(m)
         else:
