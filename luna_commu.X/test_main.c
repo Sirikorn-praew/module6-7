@@ -26,13 +26,15 @@
 //Position
 #define kp_x 2
 #define ki_x 0
-#define kd_x 0
+#define kd_x 1
 #define kp_y 2
 #define ki_y 0
-#define kd_y 0
+#define kd_y 1
 #define k 150
 double setpoint_x = (long int) 0;
 double setpoint_y = (long int) 0;
+long int pwm_x = 0, pwm_y = 0;
+unsigned char state_setpoint = 0;
 uint16_t posx = 0, posy = 0;
 
 //traj.
@@ -115,12 +117,19 @@ void setpwm(uint16_t prescale, uint16_t freq) {
     __builtin_write_OSCCONL(OSCCON | 0x40); //PPS RECONFIG LOCK
 }
 
+void print_timer() {
+    T4CONbits.TCKPS = 0b11; //pre-scale 1:8
+    PR4 = 3125; //period 25000 tick per cycle
+    _T4IE = 1; //enable interrupt for timer1
+    _T4IP = 1; //set interrupt priority to  1
+} //control loop 50 hz
+
 void setperiod_position() {
     T1CONbits.TCKPS = 0b10; //pre-scale 1:8
-    PR1 = 25000; //period 25000 tick per cycle
+    PR1 = 10000; //period 25000 tick per cycle
     _T1IE = 1; //enable interrupt for timer1
     _T1IP = 4; //set interrupt priority to  4
-} //control loop 200 hz
+} //control loop 500 hz
 
 void init_ex_int0(uint8_t edge, uint8_t priority) {
     IPC0bits.INT0IP = priority; //set interrupt 0
@@ -280,7 +289,7 @@ void cfgDma1UartRx(void) {
     //  Configure DMA Channel 1 to:
     //  Transfer data from UART to RAM Continuously
     //  Register Indirect with Post-Increment
-    //  Using two ‘ping-pong’ buffers
+    //  Using two ï¿½ping-pongï¿½ buffers
     //  8 transfers per buffer
     //  Transfer words
     //********************************************************************************/
@@ -293,7 +302,7 @@ void cfgDma1UartRx(void) {
 
     //********************************************************************************
     //  STEP 6:
-    //  Associate two buffers with Channel 1 for ‘Ping-Pong’ operation
+    //  Associate two buffers with Channel 1 for ï¿½Ping-Pongï¿½ operation
     //********************************************************************************/
     DMA1STA = __builtin_dmaoffset(Buffer_in);
 
@@ -344,6 +353,7 @@ void init_all() {
     initPLL();
     setpwm(8, 500);
     setperiod_position();
+    print_timer();
     init_ex_int1(lim_sw1, 1, 7);
     init_ex_int2(lim_sw2, 1, 7);
     init_qei();
@@ -366,6 +376,12 @@ void __attribute__((interrupt, no_auto_psv)) _INT2Interrupt(void) {
     IFS1bits.INT2IF = 0;
 } //interrupt 2 function
 
+void __attribute__((interrupt, no_auto_psv)) _T4Interrupt(void) {
+    sprintf(Buffer_out,"  %u %u %u \n",(unsigned int)setpoint_x ,POS1CNT,POS2CNT);
+    print_uart1();
+    _T4IF = 0;
+} //print timer
+
 void __attribute__((interrupt, no_auto_psv)) _T1Interrupt(void) {
 
     //traj.
@@ -375,11 +391,11 @@ void __attribute__((interrupt, no_auto_psv)) _T1Interrupt(void) {
         setpoint_y = y0 + rt * sin(theta);
         setpoint_x *= k;
         setpoint_y *= k;
-        t += 0.005;
+        t += 0.002;
     }
     //position control 
     static long int prev_error_x = 0, i_term_x = 0, prev_error_y = 0, i_term_y = 0;
-    long int pwm_x = 0, pwm_y = 0;
+    
     long int d_term_x, d_term_y;
     long int now_error_x = setpoint_x - POS1CNT;
     long int now_error_y = setpoint_y - POS2CNT;
@@ -399,10 +415,11 @@ void __attribute__((interrupt, no_auto_psv)) _T1Interrupt(void) {
             _LATA0 = 1; //A=0
             _LATA1 = 0; //B=1
             OC1RS = PR2;
-        } else if (now_error_x >= -500 && now_error_x <= 500) {
+        } else if (now_error_x >= -4500 && now_error_x <= 450) {
             _LATA0 = 1; //A=0
             _LATA1 = 1; //B=1
             OC1RS = 0;
+            state_setpoint =1;
             } else {
                 _LATA0 = 0; //A=0
                 _LATA1 = 1; //B=1
@@ -417,6 +434,7 @@ void __attribute__((interrupt, no_auto_psv)) _T1Interrupt(void) {
                 _LATA0 = 1; //A=0
                 _LATA1 = 1; //B=1
                 OC1RS = 0;
+                 state_setpoint =1;
             } else {
                 _LATA0 = 0; //A=0
                 _LATA1 = 1; //B=1
@@ -428,10 +446,11 @@ void __attribute__((interrupt, no_auto_psv)) _T1Interrupt(void) {
                 _LATB13 = 1; //A=0
                 _LATB15 = 0; //B=1
                 OC2RS = PR2;
-            } else if (now_error_y >= -500 && now_error_y <= 500) {
+            } else if (now_error_y >= -450 && now_error_y <= 450) {
                 _LATB13 = 1; //A=0
                 _LATB15 = 1; //B=1
                 OC2RS = 0;
+                 state_setpoint =1;
             } else {
                 _LATB13 = 0; //A=0
                 _LATB15 = 1; //B=1
@@ -442,10 +461,11 @@ void __attribute__((interrupt, no_auto_psv)) _T1Interrupt(void) {
                 _LATB13 = 1; //A=0
                 _LATB15 = 0; //B=1
                 OC2RS = pwm_y;
-            } else if (now_error_y >= -500 && now_error_y <= 500) {
+            } else if (now_error_y >= -450 && now_error_y <= 450) {
                 _LATB13 = 1; //A=0
                 _LATB15 = 1; //B=1
                 OC2RS = 0;
+                 state_setpoint =1;
             } else {
                 _LATB13 = 0; //A=0
                 _LATB15 = 1; //B=1
@@ -508,16 +528,19 @@ void __attribute__((interrupt, no_auto_psv)) _T1Interrupt(void) {
                 c2 = (3.0 / (T * T)) * rf;
                 c3 = (-2.0 / (T * T * T)) * rf;
                 t = 0;
-                sprintf(Buffer_out, "%f %f  %ld  %ld", rf, T, x0, y0);
-                print_uart1();
+                //sprintf(Buffer_out, "%f %f  %ld  %ld", rf, T, x0, y0);
+                //print_uart1();
                 delay(1500);
                 T1CONbits.TON = 1;
+                //T4CONbits.TON = 1;
                 state = 5;
             }  else if (Buffer_in[1] == 0xAA) {
                 state_ack_com = Buffer_in[2];
                 state_ack_end = Buffer_in[3];
             } else if (Buffer_in[1] == 0xFF) {
                 state = 255;
+            } else if(Buffer_in[1] == 0xBB){
+                state = 99;
             }
         }
         IFS0bits.DMA1IF = 0; // Clear the DMA1 Interrupt Flag
@@ -701,33 +724,33 @@ void __attribute__((interrupt, no_auto_psv)) _T1Interrupt(void) {
         while (1) {
             if (state == 0) {
             } else if (state == 1) {
-                sprintf(Buffer_out, "state = 1 ");
-                print_uart1();
                 wait_ack_nano(0xB1);
                 comebackhome();
+                sent_ack_com(0xF1);
                 state_ack_nano = 0;
                 state = 0;
             } else if (state == 2) {
-                sprintf(Buffer_out, "state = 2 ");
-                print_uart1();
                 //capture();
                 state = 0;
             } else if (state == 3) {
-                sprintf(Buffer_out, "state = 3 ");
-                print_uart1();
+                //sprintf(Buffer_out, "state = 3 ");
+                //print_uart1();
                 //catch();
+                sent_ack_com(0xF3);
                 state = 0;
             } else if (state == 4) {
-                sprintf(Buffer_out, "state = 4 ");
-                print_uart1();
+                state_setpoint =0;
                 setpoint_x = (long int) (posx * k);
                 setpoint_y = (long int) (posy * k);
-                state = 0;
+                if( state_setpoint ==1){
+                    sent_ack_com(0xF4);
+                    state = 0;
+                }
             } else if (state == 5) {
                 if ( t >=  T) {
                     x0 = (POS1CNT) / k;
                     y0 = (POS2CNT) / k;
-                    sent_ack_com(0xA6);
+                    sent_ack_com(0xF5);
                     state = 0;
                 }
             } else if (state == 255) {
@@ -738,6 +761,10 @@ void __attribute__((interrupt, no_auto_psv)) _T1Interrupt(void) {
                 sprintf(Buffer_out, "complete");
                 print_uart1();
                 state_ack_nano = 0;
+                state = 0;
+            }
+            else if (state == 99) {
+                sent_ack_com(0xBB);
                 state = 0;
             }
             old_state = state;
