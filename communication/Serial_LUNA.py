@@ -19,6 +19,7 @@ def Sethome():
     data = [255,241,0,0,0,0,0,0,0,0,0]                            #"FF,F1" + x + y + z + a + g
     #print(data)
     serialPic.write(serial.to_bytes(data))
+    t = 0
     while(True):
         a = serialPic.readline()
         if len(a) != 0:
@@ -26,6 +27,11 @@ def Sethome():
             spic = [b for b in a][0]
             if spic == 241:
                 break
+        time.sleep(2)
+        serialPic.write(serial.to_bytes(data))
+        t += 1
+        if t >= 2:
+            break
     print("LUNA Comimg Home")
 
 def Capture():
@@ -111,10 +117,13 @@ def Reset():
             print(a)
             spic = [b for b in a][0]
             if spic == 187:
-                time.sleep(3)
+                time.sleep(1)
                 serialPic.rts = 1
                 time.sleep(1)
                 serialPic.rts = 0
+                serialPic.dtr = 0
+                serialPic.timeout = 0.1
+                serialPic.flush()
                 break   
     print("LUNA Reset Complete")
 
@@ -141,7 +150,7 @@ def Link():
             break
         elif m == 'r':
             Reset()
-        elif m == 'rst':
+        elif m == 'rts':
             serialPic.rts = 1
             time.sleep(1)
             serialPic.rts = 0
