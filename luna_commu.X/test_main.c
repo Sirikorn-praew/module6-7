@@ -482,36 +482,70 @@ void __attribute__((interrupt, no_auto_psv)) _DMA0Interrupt(void) {
 
 void __attribute__((interrupt, no_auto_psv)) _DMA1Interrupt(void) {
 
-    //sent data to arduino
-    memcpy(&Buffer_nano_out, &Buffer_in, sizeof (Buffer_in));
-    DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
-    DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
-    DMA2REQbits.FORCE = 1;
-    delay(100);
-    memcpy(&Buffer_nano_out, &Buffer_in, sizeof (Buffer_in));
-    DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
-    DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
-    DMA2REQbits.FORCE = 1;
 
     static long int xf, yf, delta_x, delta_y;
 
     //state
     if (Buffer_in[0] == 0xFF) {
         if (Buffer_in[1] == 0xF0) {
+            memcpy(&Buffer_nano_out, &Buffer_in, sizeof (Buffer_in));
+            DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
+            DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
+            DMA2REQbits.FORCE = 1;
+            delay(100);
+            DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
+            DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
+            DMA2REQbits.FORCE = 1;
             state = 0;
         } else if (Buffer_in[1] == 0xF1) {
-            //home
+
+            memcpy(&Buffer_nano_out, &Buffer_in, sizeof (Buffer_in));
+            DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
+            DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
+            DMA2REQbits.FORCE = 1;
+            delay(100);
+            DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
+            DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
+            DMA2REQbits.FORCE = 1;
+
             state = 1;
         } else if (Buffer_in[1] == 0xF2) {
-            //capture
+
+            memcpy(&Buffer_nano_out, &Buffer_in, sizeof (Buffer_in));
+            DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
+            DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
+            DMA2REQbits.FORCE = 1;
+            delay(100);
+            DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
+            DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
+            DMA2REQbits.FORCE = 1;
+
             state = 2;
         } else if (Buffer_in[1] == 0xF3) {
-            //catch 
+
+            memcpy(&Buffer_nano_out, &Buffer_in, sizeof (Buffer_in));
+            DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
+            DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
+            DMA2REQbits.FORCE = 1;
+            delay(100);
+            DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
+            DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
+            DMA2REQbits.FORCE = 1;
+
             posx = (Buffer_in[2] << 8) + Buffer_in[3];
             posy = (Buffer_in[4] << 8) + Buffer_in[5];
             state = 3;
         } else if (Buffer_in[1] == 0xF4) {
-            //move to
+
+            memcpy(&Buffer_nano_out, &Buffer_in, sizeof (Buffer_in));
+            DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
+            DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
+            DMA2REQbits.FORCE = 1;
+            delay(100);
+            DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
+            DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
+            DMA2REQbits.FORCE = 1;
+
             posx = (Buffer_in[2] << 8) + Buffer_in[3];
             posy = (Buffer_in[4] << 8) + Buffer_in[5];
             state = 4;
@@ -529,11 +563,21 @@ void __attribute__((interrupt, no_auto_psv)) _DMA1Interrupt(void) {
             c2 = (3.0 / (T * T)) * rf;
             c3 = (-2.0 / (T * T * T)) * rf;
             t = 0;
-            //sprintf(Buffer_out, "%f %f  %ld  %ld", rf, T, x0, y0);
-            //print_uart1();
             delay(1500);
+
+            memcpy(&Buffer_nano_out, &Buffer_in, sizeof (Buffer_in));
+            int z_time = T * 1000;
+            Buffer_nano_out[11] = z_time >> 8;
+            Buffer_nano_out[12] = z_time % 256;
+            DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
+            DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
+            DMA2REQbits.FORCE = 1;
+            delay(100);
+            DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
+            DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
+            DMA2REQbits.FORCE = 1;
+
             T1CONbits.TON = 1;
-            //T4CONbits.TON = 1;
             state = 5;
         } else if (Buffer_in[1] == 0xAA) {
             state_ack_com = Buffer_in[2];
@@ -732,40 +776,60 @@ int main(void) {
         } else if (state == 2) {
             //capture();
             unsigned char cap_state = 0;
+            long int goy;
             //wait_ack_nano(0xB2);
             delay(100);
-            int x, y;
-            for (x = 1; x <= 4; x++) {
-                for (y = 1; y <= 4; y++) {
-                    setpoint_x = (long int) (x*70 * k);
-                    setpoint_y = (long int) (y *70* k);
+            int y;
+            for (y= 1; y <= 5; y++) {
+                goy = y * 50;
+                setpoint_x = 0;
+                setpoint_y = (long int) (goy * k);
+                while (state_setpoint == 0) {
+                }
+                state_setpoint = 0;
+                cap_state++;
+                //delay(300);
+                sent_ack_com(cap_state);
+                wait_ack_com(cap_state);
+            }
+            /*for (y = 1; y < 5; y++) {
+                for (x = 1; x < 5; x++) {
+                    gox = x * 50;
+                    goy = y * 50;
+                    setpoint_x = (long int) (gox * k);
+                    setpoint_y = (long int) (goy * k);
                     while (state_setpoint == 0) {
                     }
                     state_setpoint = 0;
                     cap_state++;
+                    //delay(300);
                     sent_ack_com(cap_state);
-                    sprintf(Buffer_out,"%d  %d",x,y);
-                    print_uart1();
+                    //sprintf(Buffer_out, "%.1f  %.1f %d %d %d", setpoint_x / k, setpoint_y / k, x, y, k);
+                    //print_uart1();
                     wait_ack_com(cap_state);
                 }
-            }
+            }*/
             home_x_state = 0;
             home_y_state = 0;
             comebackhome();
+            setpoint_x = 0;
+            setpoint_y = 0;
             delay(100);
             sent_ack_com(0xF2);
             state = 0;
         } else if (state == 3) {
             wait_ack_nano(0xB3);
-            setpoint_x = (long int)(100*k);
-            setpoint_y = (long int)(320*k); // go target
-            while(state_setpoint == 0){}
+            setpoint_x = (long int) (100 * k);
+            setpoint_y = (long int) (320 * k); // go target
+            while (state_setpoint == 0) {
+            }
             state_setpoint = 0;
             sent_ack_nano(0xB3);
             wait_ack_nano(0xB3); // gripper down open close and up to 300
-            setpoint_x = (long int)(posx*k);
-            setpoint_y = (long int)(posy*k); // go start point
-            while(state_setpoint == 0){} //careful rotage!
+            setpoint_x = (long int) (posx * k);
+            setpoint_y = (long int) (posy * k); // go start point
+            while (state_setpoint == 0) {
+            } //careful rotage!
             sent_ack_com(0xF3);
             state_setpoint = 0;
             state_ack_nano = 0;
