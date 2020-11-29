@@ -26,10 +26,10 @@
 //Position
 #define kp_x 2
 #define ki_x 0
-#define kd_x 1
+#define kd_x 2
 #define kp_y 2
 #define ki_y 0
-#define kd_y 1
+#define kd_y 2
 #define k 150
 double setpoint_x = (long int) 0;
 double setpoint_y = (long int) 0;
@@ -184,27 +184,12 @@ void init_uart1(void) {
     U1MODEbits.STSEL = 0; // 1-stop bit
     U1MODEbits.PDSEL = 0; // No Parity, 8-data bits
     U1MODEbits.ABAUD = 0; // Autobaud Disabled
-
     U1BRG = BRGVAL; // BAUD Rate Setting for 115200
-
-
-    //********************************************************************************
-    //  STEP 1:
-    //  Configure UART for DMA transfers
-    //********************************************************************************/
     U1STAbits.UTXISEL0 = 0; // Interrupt after one Tx character is transmitted
     U1STAbits.UTXISEL1 = 0;
     U1STAbits.URXISEL = 0; // Interrupt after one RX character is received
-
-
-    //********************************************************************************
-    //  STEP 2:
-    //  Enable UART Rx and Tx
-    //********************************************************************************/
     U1MODEbits.UARTEN = 1; // Enable UART
     U1STAbits.UTXEN = 1; // Enable UART Tx
-
-
     IEC4bits.U1EIE = 0;
 }
 
@@ -212,63 +197,24 @@ void init_uart2(void) {
     U2MODEbits.STSEL = 0; // 1-stop bit
     U2MODEbits.PDSEL = 0; // No Parity, 8-data bits
     U2MODEbits.ABAUD = 0; // Autobaud Disabled
-
     U2BRG = BRGVAL; // BAUD Rate Setting for 115200
-
-
-    //********************************************************************************
-    //  STEP 1:
-    //  Configure UART for DMA transfers
-    //********************************************************************************/
     U2STAbits.UTXISEL0 = 0; // Interrupt after one Tx character is transmitted
     U2STAbits.UTXISEL1 = 0;
     U2STAbits.URXISEL = 0; // Interrupt after one RX character is received
-
-
-    //********************************************************************************
-    //  STEP 2:
-    //  Enable UART Rx and Tx
-    //********************************************************************************/
     U2MODEbits.UARTEN = 1; // Enable UART
     U2STAbits.UTXEN = 1; // Enable UART Tx
 }
 // DMA0 configuration
 
 void cfgDma0UartTx(void) {
-    //********************************************************************************
-    //  STEP 3:
-    //  Associate DMA Channel 0 with UART Tx
-    //********************************************************************************/
     DMA0REQ = 0x000C; // Select UART1 Transmitter
     DMA0PAD = (volatile unsigned int) &U1TXREG;
-
-    //********************************************************************************
-    //  STEP 5:
-    //  Configure DMA Channel 0 to:
-    //  Transfer data from RAM to UART
-    //  One-Shot mode
-    //  Register Indirect with Post-Increment
-    //  Using single buffer
-    //  8 transfers per buffer
-    //  Transfer words
-    //********************************************************************************/
-    // One-Shot, Post-Increment, RAM-to-Peripheral
     DMA0CONbits.AMODE = 0;
     DMA0CONbits.MODE = 1;
     DMA0CONbits.DIR = 1;
     DMA0CONbits.SIZE = 1;
     DMA0CNT = 1; // 1 DMA requests
-
-    //********************************************************************************
-    //  STEP 6:
-    // Associate one buffer with Channel 0 for one-shot operation
-    //********************************************************************************/
     DMA0STA = __builtin_dmaoffset(Buffer_out);
-
-    //********************************************************************************
-    //  STEP 8:
-    //	Enable DMA Interrupts
-    //********************************************************************************/
     IFS0bits.DMA0IF = 0; // Clear DMA Interrupt Flag
     IEC0bits.DMA0IE = 1; // Enable DMA interrupt
 
@@ -276,46 +222,17 @@ void cfgDma0UartTx(void) {
 // DMA1 configuration
 
 void cfgDma1UartRx(void) {
-    //********************************************************************************
-    //  STEP 3:
-    //  Associate DMA Channel 1 with UART Rx
-    //********************************************************************************/
     DMA1REQ = 0x000B; // Select UART1 Receiver
     DMA1PAD = (volatile unsigned int) &U1RXREG;
-
-    //********************************************************************************
-    //  STEP 4:
-    //  Configure DMA Channel 1 to:
-    //  Transfer data from UART to RAM Continuously
-    //  Register Indirect with Post-Increment
-    //  Using two �ping-pong� buffers
-    //  8 transfers per buffer
-    //  Transfer words
-    //********************************************************************************/
     //DMA1CON = 0x0002;					// Continuous,  Post-Inc, Periph-RAM
     DMA1CONbits.AMODE = 0;
     DMA1CONbits.MODE = 0;
     DMA1CONbits.DIR = 0;
     DMA1CONbits.SIZE = 1;
-    DMA1CNT = 10; // 6 DMA requests
-
-    //********************************************************************************
-    //  STEP 6:
-    //  Associate two buffers with Channel 1 for �Ping-Pong� operation
-    //********************************************************************************/
+    DMA1CNT = 10;
     DMA1STA = __builtin_dmaoffset(Buffer_in);
-
-    //********************************************************************************
-    //  STEP 8:
-    //	Enable DMA Interrupts
-    //********************************************************************************/
     IFS0bits.DMA1IF = 0; // Clear DMA interrupt
     IEC0bits.DMA1IE = 1; // Enable DMA interrupt
-
-    //********************************************************************************
-    //  STEP 9:
-    //  Enable DMA Channel 1 to receive UART data
-    //********************************************************************************/
     DMA1CONbits.CHEN = 1; // Enable DMA Channel
 }
 
@@ -482,69 +399,50 @@ void __attribute__((interrupt, no_auto_psv)) _DMA0Interrupt(void) {
 
 void __attribute__((interrupt, no_auto_psv)) _DMA1Interrupt(void) {
 
-
     static long int xf, yf, delta_x, delta_y;
-
     //state
     if (Buffer_in[0] == 0xFF) {
         if (Buffer_in[1] == 0xF0) {
-            memcpy(&Buffer_nano_out, &Buffer_in, sizeof (Buffer_in));
-            DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
-            DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
-            DMA2REQbits.FORCE = 1;
+            memcpy(Buffer_nano_out, Buffer_in, sizeof (Buffer_in));
+            print_uart2();
             delay(100);
-            DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
-            DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
-            DMA2REQbits.FORCE = 1;
+            print_uart2();
             state = 0;
         } else if (Buffer_in[1] == 0xF1) {
-
-            memcpy(&Buffer_nano_out, &Buffer_in, sizeof (Buffer_in));
-            DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
-            DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
-            DMA2REQbits.FORCE = 1;
+            memcpy(Buffer_nano_out, Buffer_in, sizeof (Buffer_in));
+            print_uart2();
             delay(100);
-            DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
-            DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
-            DMA2REQbits.FORCE = 1;
+            print_uart2();
 
             state = 1;
         } else if (Buffer_in[1] == 0xF2) {
-
-            memcpy(&Buffer_nano_out, &Buffer_in, sizeof (Buffer_in));
-            DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
-            DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
-            DMA2REQbits.FORCE = 1;
+            memcpy(Buffer_nano_out, Buffer_in, sizeof (Buffer_in));
+            print_uart2();
             delay(100);
-            DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
-            DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
-            DMA2REQbits.FORCE = 1;
-
+            print_uart2();
             state = 2;
         } else if (Buffer_in[1] == 0xF3) {
-
-            memcpy(&Buffer_nano_out, &Buffer_in, sizeof (Buffer_in));
-            DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
-            DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
-            DMA2REQbits.FORCE = 1;
+            memcpy(Buffer_nano_out, Buffer_in, sizeof (Buffer_in));
+            print_uart2();
             delay(100);
-            DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
-            DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
-            DMA2REQbits.FORCE = 1;
-
+            print_uart2();
             posx = (Buffer_in[2] << 8) + Buffer_in[3];
             posy = (Buffer_in[4] << 8) + Buffer_in[5];
             state = 3;
         } else if (Buffer_in[1] == 0xF4) {
+            //            sprintf(Buffer_out,"in ",Buffer_in);
+            //            print_uart1();
+            //            sprintf(Buffer_out,Buffer_nano_out,11);
+            //            print_uart1();
+            memcpy(Buffer_nano_out, Buffer_in, sizeof (Buffer_in));
+            memcpy(Buffer_out, Buffer_nano_out, sizeof (Buffer_nano_out));
+            //sprintf(Buffer_out,"copy  ",Buffer_in);
+            print_uart1();
+            DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
+            DMA2CNT = 10;
+            DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
+            DMA2REQbits.FORCE = 1; // Manual mode: Kick-start the first transfer
 
-            memcpy(&Buffer_nano_out, &Buffer_in, sizeof (Buffer_in));
-            DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
-            DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
-            DMA2REQbits.FORCE = 1;
-            delay(100);
-            DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
-            DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
-            DMA2REQbits.FORCE = 1;
 
             posx = (Buffer_in[2] << 8) + Buffer_in[3];
             posy = (Buffer_in[4] << 8) + Buffer_in[5];
@@ -563,20 +461,17 @@ void __attribute__((interrupt, no_auto_psv)) _DMA1Interrupt(void) {
             c2 = (3.0 / (T * T)) * rf;
             c3 = (-2.0 / (T * T * T)) * rf;
             t = 0;
-            delay(1500);
+            //delay(500);
 
-            memcpy(&Buffer_nano_out, &Buffer_in, sizeof (Buffer_in));
-            int z_time = T * 1000;
-            Buffer_nano_out[11] = z_time >> 8;
-            Buffer_nano_out[12] = z_time % 256;
+            memcpy(Buffer_nano_out, Buffer_in, sizeof (Buffer_in));
+            unsigned int z_time = T*100.0;
+            Buffer_nano_out[11] = z_time;
+            sprintf(Buffer_out,"%f %u",T,Buffer_nano_out[11]);
+            print_uart1();
             DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
+            DMA2CNT = 10;
             DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
             DMA2REQbits.FORCE = 1;
-            delay(100);
-            DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
-            DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
-            DMA2REQbits.FORCE = 1;
-
             T1CONbits.TON = 1;
             state = 5;
         } else if (Buffer_in[1] == 0xAA) {
@@ -646,7 +541,8 @@ void motorY_drive(char motor_state, char duty_cycle) {
 
 void print_uart1() {
     DMA0STA = __builtin_dmaoffset(Buffer_out);
-    DMA0CNT = strlen(Buffer_out) - 1;
+    //DMA0CNT = strlen(Buffer_out) - 1;
+    DMA0CNT = 10;
     DMA0CONbits.CHEN = 1; // Re-enable DMA0 Channel
     DMA0REQbits.FORCE = 1; // Manual mode: Kick-start the first transfer
 }
@@ -777,10 +673,10 @@ int main(void) {
             //capture();
             unsigned char cap_state = 0;
             long int goy;
-            //wait_ack_nano(0xB2);
+            wait_ack_nano(0xB2);
             delay(100);
             int y;
-            for (y= 1; y <= 5; y++) {
+            for (y = 1; y <= 5; y++) {
                 goy = y * 50;
                 setpoint_x = 0;
                 setpoint_y = (long int) (goy * k);
