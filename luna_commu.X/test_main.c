@@ -124,10 +124,10 @@ void print_timer() {
 } //control loop 50 hz
 
 void setperiod_position() {
-    T1CONbits.TCKPS = 0b10; //pre-scale 1:8
-    PR1 = 10000; //period 25000 tick per cycle
+    T1CONbits.TCKPS = 0b01; //pre-scale 1:8
+    PR1 = 10000; //period 10000 tick per cycle
     _T1IE = 1; //enable interrupt for timer1
-    _T1IP = 4; //set interrupt priority to  4
+    _T1IP = 5; //set interrupt priority to  4
 } //control loop 500 hz
 
 void init_ex_int0(uint8_t edge, uint8_t priority) {
@@ -213,7 +213,7 @@ void cfgDma0UartTx(void) {
     DMA0CONbits.MODE = 1;
     DMA0CONbits.DIR = 1;
     DMA0CONbits.SIZE = 1;
-    DMA0CNT = 1; // 1 DMA requests
+    DMA0CNT = 10; // 1 DMA requests
     DMA0STA = __builtin_dmaoffset(Buffer_out);
     IFS0bits.DMA0IF = 0; // Clear DMA Interrupt Flag
     IEC0bits.DMA0IE = 1; // Enable DMA interrupt
@@ -243,7 +243,7 @@ void cfgDma2UartTx2(void) {
     DMA2CONbits.MODE = 1;
     DMA2CONbits.DIR = 1;
     DMA2CONbits.SIZE = 1;
-    DMA2CNT = 5; // 1 DMA requests
+    DMA2CNT = 10; // 1 DMA requests
     DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
     IFS1bits.DMA2IF = 0; // Clear DMA Interrupt Flag
     IEC1bits.DMA2IE = 1; // Enable DMA interrupt
@@ -302,9 +302,9 @@ void __attribute__((interrupt, no_auto_psv)) _T1Interrupt(void) {
 
     //traj.
     if (state == 5) {
-        rt = c0 + c1 * t + c2 * t * t + c3 * t * t*t;
-        setpoint_x = x0 + rt * cos(theta);
-        setpoint_y = y0 + rt * sin(theta);
+        rt = c0 + (c1 * t)+ (c2 * t * t) + (c3 * t * t * t);
+        setpoint_x = x0 + (rt * cos(theta));
+        setpoint_y = y0 + (rt * sin(theta));
         setpoint_x *= k;
         setpoint_y *= k;
         t += 0.002;
@@ -417,33 +417,36 @@ void __attribute__((interrupt, no_auto_psv)) _DMA1Interrupt(void) {
             state = 1;
         } else if (Buffer_in[1] == 0xF2) {
             memcpy(Buffer_nano_out, Buffer_in, sizeof (Buffer_in));
-            print_uart2();
+            DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
+            DMA2CNT = 10;
+            DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
+            DMA2REQbits.FORCE = 1; // Manual mode: Kick-start the first transfer
             delay(100);
-            print_uart2();
+            DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
+            DMA2CNT = 10;
+            DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
+            DMA2REQbits.FORCE = 1; // Manual mode: Kick-start the first transfer
             state = 2;
         } else if (Buffer_in[1] == 0xF3) {
             memcpy(Buffer_nano_out, Buffer_in, sizeof (Buffer_in));
-            print_uart2();
+            DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
+            DMA2CNT = 10;
+            DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
+            DMA2REQbits.FORCE = 1; // Manual mode: Kick-start the first transfer
             delay(100);
-            print_uart2();
+            DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
+            DMA2CNT = 10;
             posx = (Buffer_in[2] << 8) + Buffer_in[3];
             posy = (Buffer_in[4] << 8) + Buffer_in[5];
             state = 3;
         } else if (Buffer_in[1] == 0xF4) {
-            //            sprintf(Buffer_out,"in ",Buffer_in);
-            //            print_uart1();
-            //            sprintf(Buffer_out,Buffer_nano_out,11);
-            //            print_uart1();
             memcpy(Buffer_nano_out, Buffer_in, sizeof (Buffer_in));
             memcpy(Buffer_out, Buffer_nano_out, sizeof (Buffer_nano_out));
-            //sprintf(Buffer_out,"copy  ",Buffer_in);
             print_uart1();
             DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
             DMA2CNT = 10;
             DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
             DMA2REQbits.FORCE = 1; // Manual mode: Kick-start the first transfer
-
-
             posx = (Buffer_in[2] << 8) + Buffer_in[3];
             posy = (Buffer_in[4] << 8) + Buffer_in[5];
             state = 4;
@@ -455,23 +458,25 @@ void __attribute__((interrupt, no_auto_psv)) _DMA1Interrupt(void) {
             delta_y = yf - y0;
             rf = sqrt((delta_x * delta_x) + (delta_y * delta_y));
             theta = atan2(delta_y, delta_x);
-            T = rf / 620.0;
+            T = rf / 50.0;
             c0 = 0;
             c1 = 0;
             c2 = (3.0 / (T * T)) * rf;
             c3 = (-2.0 / (T * T * T)) * rf;
             t = 0;
-            //delay(500);
 
+            int z_time = T * 1000;
             memcpy(Buffer_nano_out, Buffer_in, sizeof (Buffer_in));
-            unsigned int z_time = T*100.0;
-            Buffer_nano_out[11] = z_time;
-            sprintf(Buffer_out,"%f %u",T,Buffer_nano_out[11]);
-            print_uart1();
+            Buffer_nano_out[11] = z_time << 8;
+            Buffer_nano_out[11] = z_time % 256;
+            //            sprintf(Buffer_out,"%f",T);
+            //            print_uart1();
+            //            memcpy(Buffer_out, Buffer_nano_out, 12);
+            //            print_uart1();
             DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
-            DMA2CNT = 10;
+            DMA2CNT = 12;
             DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
-            DMA2REQbits.FORCE = 1;
+            DMA2REQbits.FORCE = 1; // Manual mode: Kick-start the first transfer
             T1CONbits.TON = 1;
             state = 5;
         } else if (Buffer_in[1] == 0xAA) {
@@ -542,7 +547,7 @@ void motorY_drive(char motor_state, char duty_cycle) {
 void print_uart1() {
     DMA0STA = __builtin_dmaoffset(Buffer_out);
     //DMA0CNT = strlen(Buffer_out) - 1;
-    DMA0CNT = 10;
+    DMA0CNT = 12;
     DMA0CONbits.CHEN = 1; // Re-enable DMA0 Channel
     DMA0REQbits.FORCE = 1; // Manual mode: Kick-start the first transfer
 }
@@ -616,8 +621,8 @@ void comebackhome() {
         }
     }
     if (set_x == 1 && set_y == 1) {
-        motorX_drive(1, 5);
-        motorY_drive(1, 10);
+        motorX_drive(1, 3);
+        motorY_drive(1, 7);
         delay(100);
         motorX_drive(0, 0);
         motorY_drive(0, 0);
@@ -659,7 +664,6 @@ int main(void) {
     cfgDma3UartRx2();
     init_uart1();
     init_uart2();
-
     //main program
     while (1) {
         if (state == 0) {
@@ -715,19 +719,21 @@ int main(void) {
             state = 0;
         } else if (state == 3) {
             wait_ack_nano(0xB3);
-            setpoint_x = (long int) (100 * k);
-            setpoint_y = (long int) (320 * k); // go target
+            unsigned int x = 20 * k;
+            unsigned int y = 300 * k;
+            setpoint_x = (long int) (x);
+            setpoint_y = (long int) (y); // go target
             while (state_setpoint == 0) {
             }
             state_setpoint = 0;
             sent_ack_nano(0xB3);
-            wait_ack_nano(0xB3); // gripper down open close and up to 300
+            wait_ack_nano(0xB9); // gripper down open close and up to 300
             setpoint_x = (long int) (posx * k);
             setpoint_y = (long int) (posy * k); // go start point
             while (state_setpoint == 0) {
-            } //careful rotage!
-            sent_ack_com(0xF3);
+            }
             state_setpoint = 0;
+            sent_ack_com(0xF3);
             state_ack_nano = 0;
             state = 0;
         } else if (state == 4) {
