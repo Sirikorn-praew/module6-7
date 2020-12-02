@@ -1,0 +1,29 @@
+{
+	"folders": [
+		{
+			"path": "C:\\Users\\User\\Documents\\PlatformIO\\Projects\\Lab2"
+		},
+		{
+			"path": "C:\\Users\\User\\Documents\\smart_shop"
+		},
+		{
+			"name": "Lab1",
+			"path": "C:\\Users\\User\\Documents\\PlatformIO\\Projects\\Lab1"
+		},
+		{
+			"name": "switchcase",
+			"path": "C:\\Users\\User\\Documents\\PlatformIO\\Projects\\switchcase"
+		},
+		{
+			"name": "19",
+			"path": "C:\\Users\\User\\Documents\\PlatformIO\\Projects\\19"
+		}
+	],
+	"settings": {
+		"terminal.integrated.env.windows": {
+			"PATH": "C:\\Users\\User\\.platformio\\penv\\Scripts;C:\\Users\\User\\.platformio\\penv;D:\\Software\\ffmpeg-20190918-c2ab998-win64-static\\bin;C:\\Program Files (x86)\\Common Files\\Oracle\\Java\\javapath;C:\\Program Files (x86)\\Intel\\iCLS Client\\;C:\\Program Files\\Intel\\iCLS Client\\;C:\\WINDOWS\\system32;C:\\WINDOWS;C:\\WINDOWS\\System32\\Wbem;C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\;C:\\Program Files (x86)\\Skype\\Phone\\;C:\\Program Files (x86)\\Intel\\Intel(R) Management Engine Components\\DAL;C:\\Program Files\\Intel\\Intel(R) Management Engine Components\\DAL;C:\\Program Files (x86)\\Intel\\Intel(R) Management Engine Components\\IPT;C:\\Program Files\\Intel\\Intel(R) Management Engine Components\\IPT;C:\\Program Files (x86)\\Microsoft SQL Server\\110\\Tools\\Binn\\;C:\\Program Files\\Microsoft SQL Server\\110\\Tools\\Binn\\;C:\\Program Files\\Microsoft SQL Server\\110\\DTS\\Binn\\;C:\\Program Files (x86)\\Windows Live\\Shared;C:\\WINDOWS\\System32\\OpenSSH\\;D:\\Software\\;C:\\Users\\User\\AppData\\Local\\Programs\\Python\\Python37-32\\;C:\\Users\\User\\AppData\\Local\\Programs\\Python\\Python37-32\\Scripts;C:\\Program Files\\Microsoft VS Code\\bin;D:\\Software\\Git\\cmd;C:\\Program Files (x86)\\Windows Kits\\8.1\\Windows Performance Toolkit\\;;%SystemRoot%\\system32;%SystemRoot%;%SystemRoot%\\System32\\Wbem;%SYSTEMROOT%\\System32\\WindowsPowerShell\\v1.0\\;%SYSTEMROOT%\\System32\\OpenSSH\\;C:\\Users\\User\\Anaconda3;C:\\Users\\User\\Anaconda3\\Library\\mingw-w64\\bin;C:\\Users\\User\\Anaconda3\\Library\\usr\\bin;C:\\Users\\User\\Anaconda3\\Library\\bin;C:\\Users\\User\\Anaconda3\\Scripts;C:\\Users\\User\\AppData\\Local\\Microsoft\\WindowsApps;C:\\Users\\User\\AppData\\Local\\Microsoft\\WindowsApps;C:\\Users\\User\\AppData\\Local\\GitHubDesktop\\bin;D:\\Software\\ffmpeg-20190918-c2ab998-win64-static\\bin;C:\\Program Files (x86)\\Common Files\\Oracle\\Java\\javapath;C:\\Program Files (x86)\\Intel\\iCLS Client\\;C:\\Program Files\\Intel\\iCLS Client\\;C:\\WINDOWS\\system32;C:\\WINDOWS;C:\\WINDOWS\\System32\\Wbem;C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\;C:\\Program Files (x86)\\Skype\\Phone\\;C:\\Program Files (x86)\\Intel\\Intel(R) Management Engine Components\\DAL;C:\\Program Files\\Intel\\Intel(R) Management Engine Components\\DAL;C:\\Program Files (x86)\\Intel\\Intel(R) Management Engine Components\\IPT;C:\\Program Files\\Intel\\Intel(R) Management Engine Components\\IPT;C:\\Program Files (x86)\\Microsoft SQL Server\\110\\Tools\\Binn\\;C:\\Program Files\\Microsoft SQL Server\\110\\Tools\\Binn\\;C:\\Program Files\\Microsoft SQL Server\\110\\DTS\\Binn\\;C:\\Program Files (x86)\\Windows Live\\Shared;C:\\WINDOWS\\System32\\OpenSSH\\;D:\\Software\\;C:\\Users\\User\\AppData\\Local\\Programs\\Python\\Python37-32\\;C:\\Users\\User\\AppData\\Local\\Programs\\Python\\Python37-32\\Scripts;C:\\Program Files\\Microsoft VS Code\\bin;D:\\Software\\Git\\cmd;C:\\Program Files (x86)\\Windows Kits\\8.1\\Windows Performance Toolkit\\;;%SystemRoot%\\system32;%SystemRoot%;%SystemRoot%\\System32\\Wbem;%SYSTEMROOT%\\System32\\WindowsPowerShell\\v1.0\\;%SYSTEMROOT%\\System32\\OpenSSH\\;C:\\Users\\User\\Anaconda3;C:\\Users\\User\\Anaconda3\\Library\\mingw-w64\\bin;C:\\Users\\User\\Anaconda3\\Library\\usr\\bin;C:\\Users\\User\\Anaconda3\\Library\\bin;C:\\Users\\User\\Anaconda3\\Scripts;C:\\Users\\User\\AppData\\Local\\Microsoft\\WindowsApps;C:\\Users\\User\\AppData\\Local\\Microsoft\\WindowsApps;C:\\Users\\User\\AppData\\Local\\GitHubDesktop\\bin",
+			"PLATFORMIO_CALLER": "vscode"
+		},
+		"python.pythonPath": "C:\\Users\\User\\anaconda3\\envs\\m\\python.exe"
+	}
+}
