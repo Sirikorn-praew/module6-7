@@ -404,15 +404,27 @@ void __attribute__((interrupt, no_auto_psv)) _DMA1Interrupt(void) {
     if (Buffer_in[0] == 0xFF) {
         if (Buffer_in[1] == 0xF0) {
             memcpy(Buffer_nano_out, Buffer_in, sizeof (Buffer_in));
-            print_uart2();
+            DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
+            DMA2CNT = 10;
+            DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
+            DMA2REQbits.FORCE = 1; // Manual mode: Kick-start the first transfer
             delay(100);
-            print_uart2();
+            DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
+            DMA2CNT = 10;
+            DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
+            DMA2REQbits.FORCE = 1; // Manual mode: Kick-start the first transfer
             state = 0;
         } else if (Buffer_in[1] == 0xF1) {
             memcpy(Buffer_nano_out, Buffer_in, sizeof (Buffer_in));
-            print_uart2();
+            DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
+            DMA2CNT = 10;
+            DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
+            DMA2REQbits.FORCE = 1; // Manual mode: Kick-start the first transfer
             delay(100);
-            print_uart2();
+            DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
+            DMA2CNT = 10;
+            DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
+            DMA2REQbits.FORCE = 1; // Manual mode: Kick-start the first transfer
 
             state = 1;
         } else if (Buffer_in[1] == 0xF2) {
@@ -441,8 +453,6 @@ void __attribute__((interrupt, no_auto_psv)) _DMA1Interrupt(void) {
             state = 3;
         } else if (Buffer_in[1] == 0xF4) {
             memcpy(Buffer_nano_out, Buffer_in, sizeof (Buffer_in));
-            memcpy(Buffer_out, Buffer_nano_out, sizeof (Buffer_nano_out));
-            print_uart1();
             DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
             DMA2CNT = 10;
             DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
