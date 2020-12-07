@@ -296,19 +296,19 @@ mix_point += points
 mix_point.append([center_rec_chess, Z_real[-1]])
 
 print(mix_point)
-# fig = plt.figure()
-# ax = fig.add_subplot(111, projection='3d')
-# for i in range(len(points)): ax.scatter(points[i][0], points[i][1], points[i][2])
-# ax.view_init(azim=-120, elev=60)
-# plt.show()
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+for i in range(len(points)): ax.scatter(points[i][0], points[i][1], points[i][2])
+ax.view_init(azim=-120, elev=60)
+plt.show()
 
-# figure_size = 15
-# plt.figure(figsize=(figure_size,figure_size))
-# plt.subplot(1,2,1),plt.imshow(img)
-# plt.title('Original Image'), plt.xticks([]), plt.yticks([])
-# plt.subplot(1,2,2),plt.imshow(result_image)
-# plt.title('Segmented Image when K = %i' % K), plt.xticks([]), plt.yticks([])
-# plt.show()
+figure_size = 15
+plt.figure(figsize=(figure_size,figure_size))
+plt.subplot(1,2,1),plt.imshow(img)
+plt.title('Original Image'), plt.xticks([]), plt.yticks([])
+plt.subplot(1,2,2),plt.imshow(result_image)
+plt.title('Segmented Image when K = %i' % K), plt.xticks([]), plt.yticks([])
+plt.show()
 
 cv2.imshow("frame3",frame3)
 cv2.imshow("dilation",dilation)
