@@ -1,8 +1,7 @@
 import cv2
 import numpy as np
 import math
-import aruco
-# from transform import four_point_transform, order_points
+from transform import four_point_transform, order_points
 dictionary = cv2.aruco.Dictionary_get(cv2.aruco.DICT_4X4_250)
 # markerImage = np.zeros((200, 200), dtype=np.uint8)
 # markerImage = cv2.aruco.drawMarker(dictionary, 38, 200, markerImage, 1)
@@ -69,10 +68,41 @@ mode = True
     # _, frame = cap.read()
 for i in range(12):
     frame = cv2.imread("./img1/0" + str(i) + ".jpg")
-    result = aruco.aruco_crop(frame)
-    if result == 0: continue
-    else:
-        warped, valid_mask = result
+    original = frame.copy()
+    markerCorners, markerIds, _ = cv2.aruco.detectMarkers(frame, dictionary, parameters=parameters)
+    if markerIds is not None:
+        ret, _, _ = cv2.aruco.estimatePoseBoard(corners=markerCorners, ids=markerIds, board=board, cameraMatrix=cameraMatrix, distCoeffs=dist, rvec=rvec, tvec=tvec)
+        if ret:
+            
+            # cv2.aruco.drawAxis(image=frame, cameraMatrix=cameraMatrix, distCoeffs=dist, rvec=rvec, tvec=tvec, length=0.1) # origin
+            T_marker = np.array([markerLength, markerLength, 0.0])
+            A = np.array([0.0, 0.0, 0.0]) + T_marker
+            B = np.array([0.4 + markerSeparation, 0.0, 0.0]) + T_marker
+            C = np.array([0.4 + markerSeparation, 0.4 + markerSeparation, 0.0]) + T_marker
+            D = np.array([0.0, 0.4 + markerSeparation, 0.0]) + T_marker
+            ### Find Transformatio Matrix ###
+            rotM = np.zeros(shape=(3,3))
+            cv2.Rodrigues(rvec, rotM, jacobian = 0)
+            ### Map to image coordinate ###
+            pts, jac = cv2.projectPoints(np.float32([A, B, C, D]).reshape(-1,3), rvec, tvec, cameraMatrix, dist)
+            pts = np.array([tuple(pts[i].ravel()) for i in range(4)], dtype = "float32")
+            pts = order_points(pts)
+            ### Draw axis ###
+            for point in [A, B, C, D]: cv2.aruco.drawAxis(image=frame, cameraMatrix=cameraMatrix, distCoeffs=dist, rvec=rvec, tvec=tvec + np.dot(point, rotM.T), length=0.1)
+            ### Draw work space ###
+            # drawBox(frame, rvec, tvec + np.dot(A, rotM.T), size=0.4 + markerSeparation)
+
+        ## Fill Marker ##
+        for corner, id in zip(markerCorners, markerIds):
+            points = [(int(point[0]), int(point[1])) for point in corner[0]]
+            ids = id[0]
+            pts1 = np.array(points, np.int32)
+            cv2.fillPoly(frame, [pts1], 255)
+        ## Perspective Crop ##
+        warped = four_point_transform(original, pts)
+        warped = cv2.resize(warped, (800, 800))
+        valid_mask = four_point_transform(np.ones(original.shape[:2], dtype="uint8") * 255, pts)
+        valid_mask = cv2.resize(valid_mask, (800, 800))
         cv2.imshow("Warped", warped)
         cv2.imwrite("./img1/" + str(i) + "_out.jpg", warped)
         cv2.imshow("Valid", valid_mask)
