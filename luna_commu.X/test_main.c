@@ -30,7 +30,7 @@
 #define kp_y 2
 #define ki_y 0
 #define kd_y 2
-#define k 150
+#define k 151
 double setpoint_x = (long int) 0;
 double setpoint_y = (long int) 0;
 long int pwm_x = 0, pwm_y = 0;
@@ -91,17 +91,9 @@ void init_GPIO() {
 
 }
 
-void setpwm(uint16_t prescale, uint16_t freq) {
-    if (prescale == 0) {
-        T2CONbits.TCKPS = 0b00;
-    } else if (prescale == 8) {
-        T2CONbits.TCKPS = 0b01;
-    } else if (prescale == 64) {
-        T2CONbits.TCKPS = 0b10;
-    } else if (prescale == 256) {
-        T2CONbits.TCKPS = 0b11;
-    }
-    PR2 = (FCY / prescale) / freq;
+void setpwm() {
+    T2CONbits.TCKPS = 0b01;
+    PR2 = 10000;
     OC1RS = 0;
     OC2RS = 0;
     OC1CONbits.OCM = 0b000; //Disable Output Compare Module
@@ -111,7 +103,7 @@ void setpwm(uint16_t prescale, uint16_t freq) {
     OC2CONbits.OCTSEL = 0; //OC2 use timer2 as counter source
     OC2CONbits.OCM = 0b110; //set to pwm without fault pin mode
     __builtin_write_OSCCONL(OSCCON & 0xBF); //PPS RECONFIG UNLOCK
-    _RP12R = 0b10010; //remap RP11 connect to OC1
+    _RP12R = 0b10010; //remap RP12 connect to OC1
     _RP14R = 0b10011; //remap RP14 connect to OC2
     __builtin_write_OSCCONL(OSCCON | 0x40); //PPS RECONFIG LOCK
 }
@@ -267,14 +259,15 @@ void cfgDma3UartRx2(void) {
 
 void init_all() {
     initPLL();
-    setpwm(8, 500);
+    setpwm();
     setperiod_position();
     print_timer();
     init_ex_int1(lim_sw1, 1, 7);
     init_ex_int2(lim_sw2, 1, 7);
     init_qei();
     init_GPIO();
-    T1CONbits.TON = 0;
+    //T1CONbits.TON = 0;
+
 }
 //interrupt function
 
@@ -293,7 +286,8 @@ void __attribute__((interrupt, no_auto_psv)) _INT2Interrupt(void) {
 } //interrupt 2 function
 
 void __attribute__((interrupt, no_auto_psv)) _T4Interrupt(void) {
-    sprintf(Buffer_out, "  %u %u %u \n", (unsigned int) setpoint_x, POS1CNT, POS2CNT);
+    //sprintf(Buffer_out, "  %u %u %u \n", (unsigned int) setpoint_x, POS1CNT, POS2CNT);
+    sprintf(Buffer_out,"%f\n",t);
     print_uart1();
     _T4IF = 0;
 } //print timer
@@ -326,11 +320,17 @@ void __attribute__((interrupt, no_auto_psv)) _T1Interrupt(void) {
     prev_error_x = now_error_x;
     pwm_y = kp_y * now_error_y + ki_y * i_term_y + kd_y * d_term_y;
     //printf("  %u %ld  \n",(unsigned int)setpoint_x ,pwm_x);
+    if(pwm_x <= 2000){
+        pwm_x = 2500;
+    }
+    if(pwm_y <= 2000){
+        pwm_y = 2500;
+    }
     if (pwm_x >= PR2) {
         if (now_error_x > 0) {
             _LATA0 = 1; //A=0
             _LATA1 = 0; //B=1
-            OC1RS = PR2;
+            OC1RS = 8000;
         } else if (now_error_x >= -450 && now_error_x <= 450) {
             _LATA0 = 1; //A=0
             _LATA1 = 1; //B=1
@@ -339,14 +339,16 @@ void __attribute__((interrupt, no_auto_psv)) _T1Interrupt(void) {
         } else {
             _LATA0 = 0; //A=0
             _LATA1 = 1; //B=1
-            OC1RS = PR2;
+            OC1RS = 8000;
         }
-    } else {
+    } 
+    else {
+        
         if (now_error_x > 0) {
             _LATA0 = 1; //A=0
             _LATA1 = 0; //B=1
             OC1RS = pwm_x;
-        } else if (now_error_x >= -300 && now_error_x <= 300) {
+        } else if (now_error_x >= -450 && now_error_x <= 450) {
             _LATA0 = 1; //A=0
             _LATA1 = 1; //B=1
             OC1RS = 0;
@@ -361,8 +363,8 @@ void __attribute__((interrupt, no_auto_psv)) _T1Interrupt(void) {
         if (now_error_y > 0) {
             _LATB13 = 1; //A=0
             _LATB15 = 0; //B=1
-            OC2RS = PR2;
-        } else if (now_error_y >= -300 && now_error_y <= 300) {
+            OC2RS = 8000;
+        } else if (now_error_y >= -450 && now_error_y <= 450) {
             _LATB13 = 1; //A=0
             _LATB15 = 1; //B=1
             OC2RS = 0;
@@ -370,14 +372,14 @@ void __attribute__((interrupt, no_auto_psv)) _T1Interrupt(void) {
         } else {
             _LATB13 = 0; //A=0
             _LATB15 = 1; //B=1
-            OC2RS = PR2;
+            OC2RS = 8000;
         }
     } else {
         if (now_error_y > 0) {
             _LATB13 = 1; //A=0
             _LATB15 = 0; //B=1
             OC2RS = pwm_y;
-        } else if (now_error_y >= -300 && now_error_y <= 300) {
+        } else if (now_error_y >= -450 && now_error_y <= 450) {
             _LATB13 = 1; //A=0
             _LATB15 = 1; //B=1
             OC2RS = 0;
@@ -468,26 +470,23 @@ void __attribute__((interrupt, no_auto_psv)) _DMA1Interrupt(void) {
             delta_y = yf - y0;
             rf = sqrt((delta_x * delta_x) + (delta_y * delta_y));
             theta = atan2(delta_y, delta_x);
-            T = rf / 50.0;
+            T = 7;
             c0 = 0;
             c1 = 0;
             c2 = (3.0 / (T * T)) * rf;
             c3 = (-2.0 / (T * T * T)) * rf;
             t = 0;
-
-            int z_time = T * 1000;
+            //int z_time = T;
+            //sprintf(Buffer_out,"%f",T);
+            //print_uart1();
             memcpy(Buffer_nano_out, Buffer_in, sizeof (Buffer_in));
-            Buffer_nano_out[11] = z_time << 8;
-            Buffer_nano_out[11] = z_time % 256;
-            //            sprintf(Buffer_out,"%f",T);
-            //            print_uart1();
-            //            memcpy(Buffer_out, Buffer_nano_out, 12);
-            //            print_uart1();
+            //Buffer_nano_out[11] = z_time << 8;
+            //Buffer_nano_out[11] = z_time % 256;
             DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
-            DMA2CNT = 12;
+            DMA2CNT = 11;
             DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
             DMA2REQbits.FORCE = 1; // Manual mode: Kick-start the first transfer
-            T1CONbits.TON = 1;
+
             state = 5;
         } else if (Buffer_in[1] == 0xAA) {
             state_ack_com = Buffer_in[2];
@@ -518,41 +517,7 @@ void __attribute__((interrupt, no_auto_psv)) _DMA3Interrupt(void) {
 
 
 //function
-//////// movement function /////////
-
-void motorX_drive(char motor_state, char duty_cycle) {
-    if (motor_state == -1) {
-        _LATA0 = 0; //A=0
-        _LATA1 = 1; //B=1
-        OC1RS = (PR2 / 100) * duty_cycle;
-    } else if (motor_state == 0) { //A=0 B=0
-        _LATA0 = 1; //A=0
-        _LATA1 = 1; //B=0
-        OC1RS = 0;
-    } else if (motor_state == 1) { //A=1 B=0
-        _LATA0 = 1; //A=1
-        _LATA1 = 0; //B=0
-        OC1RS = (PR2 / 100) * duty_cycle;
-    }
-}
-
-void motorY_drive(char motor_state, char duty_cycle) {
-    if (motor_state == -1) { //A=0 B=1
-        _LATB13 = 0; //A=0
-        _LATB15 = 1; //B=1
-        OC2RS = (PR2 / 100) * duty_cycle;
-    } else if (motor_state == 0) { //A=0 B=0
-        _LATB13 = 1; //A=0
-        _LATB15 = 1; //B=0
-        OC2RS = 0;
-    } else if (motor_state == 1) { //A=1 B=0
-        _LATB13 = 1; //A=1
-        _LATB15 = 0; //B=0
-        OC2RS = (PR2 / 100) * duty_cycle;
-    }
-}
-
-//////// communication function /////////
+//// communication function /////////
 
 void print_uart1() {
     DMA0STA = __builtin_dmaoffset(Buffer_out);
@@ -593,49 +558,71 @@ void wait_ack_com(unsigned char ack) {
 void comebackhome() {
     char set_x = 0, set_y = 0;
     //disable timer
+
     T1CONbits.TON = 0;
+    //T2CONbits.TON = 0;
     //if x is already set
     if (home_x_state == 1 && set_x == 0) {
-        motorX_drive(1, 15);
-        delay(200);
-        motorX_drive(0, 0);
-        //printf("encoder x pos : %u\n",POS1CNT);
+        _LATA0 = 1; //A=1
+        _LATA1 = 0; //B=0
+        OC1RS = 2000;
+        delay(100);
+        _LATA0 = 1; //A=1
+        _LATA1 = 1; //B=0
+        OC1RS = 0;
         set_x = 1;
     }
     //if y is already set
     if (home_y_state == 1 && set_y == 0) {
-        motorY_drive(1, 20);
-        delay(200);
-        motorY_drive(0, 0);
-        //printf("encoder y pos : %u\n",POS2CNT);
+        _LATB13 = 1; //A=1
+        _LATB15 = 0; //B=0
+        OC2RS = 2000;
+        delay(100);
+        _LATB13 = 1; //A=1
+        _LATB15 = 1; //B=0
+        OC2RS = 0;
         set_y = 1;
     }
     //when x is not set and we want to set home X
     while (home_x_state == 0 || set_x == 0) {
-        motorX_drive(-1, 10);
-        while (!(home_x_state == 0) && set_x == 0) {
-            motorX_drive(0, 0);
-            //U1TXREG = POS1CNT;
-            //printf("encoder 1 pos : %u\n", POS1CNT);
+        _LATA0 = 0; //A=0
+        _LATA1 = 1; //B=1
+        OC1RS = 2000;
+        while (home_x_state == 1 && set_x == 0) {
+            _LATA0 = 1; //A=0
+            _LATA1 = 1; //B=1
+            OC1RS = 0;
             set_x = 1;
         }
     }
     //when y is not set and we want to set home Y
     while (home_y_state == 0 || set_y == 0) {
-        motorY_drive(-1, 15);
+        _LATB13 = 0; //A=0
+        _LATB15 = 1; //B=1
+        OC2RS = 2000;
         if (home_y_state == 1 && set_y == 0) {
-            motorY_drive(0, 0);
-            //U1TXREG = POS2CNT;
-            //printf("encoder 2 pos : %u\n", POS2CNT);
+            _LATB13 = 1; //A=0
+            _LATB15 = 1; //B=1
+            OC2RS = 0;
             set_y = 1;
         }
     }
     if (set_x == 1 && set_y == 1) {
-        motorX_drive(1, 3);
-        motorY_drive(1, 7);
-        delay(100);
-        motorX_drive(0, 0);
-        motorY_drive(0, 0);
+        _LATA0 = 1; //A=1
+        _LATA1 = 0; //B=0
+        OC1RS = 2000;
+        delay(150);
+        _LATA0 = 1; //A=1
+        _LATA1 = 1; //B=0
+        OC1RS = 0;
+        delay(150);
+        _LATB13 = 1; //A=1
+        _LATB15 = 0; //B=0
+        OC2RS = 2000;
+        delay(150);
+        _LATB13 = 1; //A=1
+        _LATB15 = 1; //B=0
+        OC2RS = 0;
         delay(1000);
         POS1CNT = 0;
         POS2CNT = 0;
@@ -645,8 +632,6 @@ void comebackhome() {
     T1CONbits.TON = 1;
 }
 
-//trajectory function///////
-////// Other function ////////
 
 void delay(int time) {
     int i = 0, j = 0;
@@ -667,13 +652,13 @@ int main(void) {
     __builtin_write_OSCCONL(OSCCON | 0x40); // to set IOLOCK
 
     __builtin_enable_interrupts();
-
     cfgDma0UartTx();
     cfgDma2UartTx2();
     cfgDma1UartRx();
     cfgDma3UartRx2();
     init_uart1();
     init_uart2();
+    T2CONbits.TON = 1;
     //main program
     while (1) {
         if (state == 0) {
@@ -729,8 +714,8 @@ int main(void) {
             state = 0;
         } else if (state == 3) {
             wait_ack_nano(0xB3);
-            unsigned int x = 20 * k;
-            unsigned int y = 300 * k;
+            unsigned int x = 1 * k;
+            unsigned int y = 400 * k;
             setpoint_x = (long int) (x);
             setpoint_y = (long int) (y); // go target
             while (state_setpoint == 0) {
@@ -755,6 +740,9 @@ int main(void) {
                 state = 0;
             }
         } else if (state == 5) {
+            //wait_ack_nano(0xAA);
+            T1CONbits.TON = 1;
+            //T4CONbits.TON = 1;
             if (t >= T) {
                 x0 = (POS1CNT) / k;
                 y0 = (POS2CNT) / k;
