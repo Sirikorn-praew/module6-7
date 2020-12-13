@@ -64,7 +64,7 @@ def run():
 
     # load the image, convert it to grayscale, and initialize the
     # bookkeeping variable to keep track of the matched region
-    image = cv2.imread("Realo.jpg")
+    image = cv2.imread("Real00.jpg")
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (5, 5),0)
     unsharp = cv2.addWeighted(gray, 1.5, blurred, -0.5, 0)
@@ -379,8 +379,8 @@ def run():
             if new_cost < cost:
                 cost = new_cost
                 best =  Z[i]
-        Z_real.append(round(best))
-        heights.append(best)
+        Z_real.append(round(300-best))
+        heights.append(300-best)
         # print(len(p))
         
     for b in range(len(poly_points)-1):
@@ -400,16 +400,17 @@ def run():
         radian_theta = math.atan2(y, x) #theta = math.atan2(y[i], x[i])
         ongsa_theta = round(radian_theta*180/math.pi+90)
         points.append([round(x0), round(y0),Z_real[b],ongsa_theta])
+    
     points.append([round(x1), round(y1), Z_real[-1], ongsa_theta])
     print(points)
-    mix_point.append([center_rec[0], center_rec[1], Z_real[0]])
+    mix_point.insert(0, [center_rec[0], center_rec[1], Z_real[0], 0])
 
     point = mix_point[-1]
     if abs(point[0]-points[0][0]) + abs(point[1]-points[0][1]) < abs(point[0]-points[-1][0]) + abs(point[1]-points[-1][1]):
         mix_point += points
     else: 
         mix_point += reversed(points)    
-    mix_point.append([center_rec_chess[0], center_rec_chess[1], Z_real[-1]])
+    mix_point.append([center_rec_chess[0], center_rec_chess[1], Z_real[-1], 0])
 
     print(mix_point)
     canvas = np.ones((800, 800, 3))
@@ -446,3 +447,4 @@ def run():
     #closing all open windows  
     cv2.destroyAllWindows()
     return mix_point
+run()
