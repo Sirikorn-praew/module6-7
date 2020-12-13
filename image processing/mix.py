@@ -11,7 +11,7 @@ from scipy.ndimage import generic_filter
 
 visualize = True
 def distance(p1,p2):
-    return abs((p1[0]-p2[0])+(p1[1]-p2[1]))
+    return abs(math.sqrt((p1[0]-p2[0])**2+(p1[1]-p2[1])**2))
 def sortPoint(points, start):
     # Convert array to list (Be able to use remove())
     start = (start[0], start[1])
@@ -360,7 +360,7 @@ def run():
     Z = []
     if height_thresh_range < 16: ##change parameter eang
         print("constant height mode")
-        Z = [max_height for i in range (len(intensities))]
+        Z = [min_height for i in range (len(intensities))]
     else:
         print("linear height mode")
         for intensity in intensities:
@@ -382,35 +382,53 @@ def run():
         Z_real.append(round(300-best))
         heights.append(300-best)
         # print(len(p))
-        
-    for b in range(len(poly_points)-1):
-        # if b == b[-1]:continue
-        print(poly_points.shape)
-        x0 = poly_points[b][0][0]
-        x0 = x0*0.5
-        y0 = poly_points[b][0][1]
-        y0 = y0*0.5
-        x1 = poly_points[b+1][0][0]
-        x1 = x1*0.5
-        y1 = poly_points[b+1][0][1]
-        y1 = y1*0.5
-        
-        x = x1 - x0
-        y = y1 - y0
-        radian_theta = math.atan2(y, x) #theta = math.atan2(y[i], x[i])
-        ongsa_theta = round(radian_theta*180/math.pi+90)
-        points.append([round(x0), round(y0),Z_real[b],ongsa_theta])
-    
-    points.append([round(x1), round(y1), Z_real[-1], ongsa_theta])
-    print(points)
-    mix_point.insert(0, [center_rec[0], center_rec[1], Z_real[0], 0])
-
+    mix_point = []
+    mix_point.append([int(center_rec[0]), int(center_rec[1]), 0, 0])
     point = mix_point[-1]
-    if abs(point[0]-points[0][0]) + abs(point[1]-points[0][1]) < abs(point[0]-points[-1][0]) + abs(point[1]-points[-1][1]):
-        mix_point += points
+    if abs(point[0]-poly_points[0][0][0]/2) + abs(point[1]-poly_points[0][0][1]/2) < abs(point[0]-poly_points[-1][0][0]/2) + abs(point[1]-poly_points[-1][0][1]/2):
+        pass
     else: 
-        mix_point += reversed(points)    
+        poly_points = list(reversed(poly_points))
+        Z_real = list(reversed(Z_real))
+
+    mix_point[0][2] = Z_real[0]
+    for b in range(len(poly_points)):
+        x1 = poly_points[b][0][0]
+        y1 = poly_points[b][0][1]
+        if b >= 1:
+            x0 = poly_points[b-1][0][0]
+            y0 = poly_points[b-1][0][1]
+            zeta = math.atan2(y1-y0, x1-x0)
+            alpha = round(zeta*180/math.pi+90)
+        else: alpha = 0
+        mix_point.append([int(x1/2), int(y1/2), Z_real[b], alpha])
     mix_point.append([center_rec_chess[0], center_rec_chess[1], Z_real[-1], 0])
+
+    
+
+    # for b in range(len(poly_points)-1):
+    #     if b < 1:
+    #         x0 = poly_points[b-1][0][0]
+    #         x0 = x0*0.5
+    #         y0 = poly_points[b-1][0][1]
+    #         y0 = y0*0.5
+    #         x1 = poly_points[b][0][0]
+    #         x1 = x1*0.5
+    #         y1 = poly_points[b][0][1]
+    #         y1 = y1*0.5
+    #     x = x1 - x0
+    #     y = y1 - y0
+    #     radian_theta = math.atan2(y, x) #theta = math.atan2(y[i], x[i])
+    #     ongsa_theta = round(radian_theta*180/math.pi+90)
+    #     points.append([round(x0), round(y0),Z_real[b],ongsa_theta])
+    # points.append([round(x1), round(y1), Z_real[-1], ongsa_theta])
+    # print(points)
+    # point = mix_point[-1]
+    # if abs(point[0]-points[0][0]) + abs(point[1]-points[0][1]) < abs(point[0]-points[-1][0]) + abs(point[1]-points[-1][1]):
+    #     mix_point += points
+    # else: 
+    #     mix_point += reversed(points)    
+    # mix_point.append([center_rec_chess[0], center_rec_chess[1], Z_real[-1], 0])
 
     print(mix_point)
     canvas = np.ones((800, 800, 3))
@@ -420,9 +438,9 @@ def run():
         if i < len(mix_point)-1:
             x1 = mix_point[i+1][0]*2
             y1 = mix_point[i+1][1]*2
-            cv2.line(canvas, (int(x), int(y)), (int(x1), int(y1)), (0, 0, 255), 2)
-            cv2.putText(canvas, str(mix_point[i][2]),(int(x),int(y)),cv2.FONT_HERSHEY_SIMPLEX,1, (0, 0, 0),3)
-    cv2.imshow("Path", canvas)
+            cv2.line(image, (int(x), int(y)), (int(x1), int(y1)), (0, 0, 255), 2)
+            cv2.putText(image, str(mix_point[i][2]),(int(x),int(y)),cv2.FONT_HERSHEY_SIMPLEX,1, (0, 0, 0),3)
+    cv2.imshow("Path", image)
     cv2.waitKey(0)
     # fig = plt.figure()
     # ax = fig.add_subplot(111, projection='3d')
