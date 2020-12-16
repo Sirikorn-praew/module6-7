@@ -287,7 +287,7 @@ void __attribute__((interrupt, no_auto_psv)) _INT2Interrupt(void) {
 
 void __attribute__((interrupt, no_auto_psv)) _T4Interrupt(void) {
     //sprintf(Buffer_out, "  %u %u %u \n", (unsigned int) setpoint_x, POS1CNT, POS2CNT);
-    sprintf(Buffer_out,"%f\n",t);
+    sprintf(Buffer_out, "%f\n", t);
     print_uart1();
     _T4IF = 0;
 } //print timer
@@ -320,10 +320,10 @@ void __attribute__((interrupt, no_auto_psv)) _T1Interrupt(void) {
     prev_error_x = now_error_x;
     pwm_y = kp_y * now_error_y + ki_y * i_term_y + kd_y * d_term_y;
     //printf("  %u %ld  \n",(unsigned int)setpoint_x ,pwm_x);
-    if(pwm_x <= 2000){
+    if (pwm_x <= 2000) {
         pwm_x = 2500;
     }
-    if(pwm_y <= 2000){
+    if (pwm_y <= 2000) {
         pwm_y = 2500;
     }
     if (pwm_x >= PR2) {
@@ -341,9 +341,9 @@ void __attribute__((interrupt, no_auto_psv)) _T1Interrupt(void) {
             _LATA1 = 1; //B=1
             OC1RS = 8000;
         }
-    } 
+    }
     else {
-        
+
         if (now_error_x > 0) {
             _LATA0 = 1; //A=0
             _LATA1 = 0; //B=1
@@ -464,6 +464,7 @@ void __attribute__((interrupt, no_auto_psv)) _DMA1Interrupt(void) {
             state = 4;
         } else if (Buffer_in[1] == 0xF5) {
             T1CONbits.TON = 0;
+            //static unsigned char theta_l, theta_h;
             xf = (Buffer_in[2] << 8) + Buffer_in[3];
             yf = (Buffer_in[4] << 8) + Buffer_in[5];
             delta_x = xf - x0;
@@ -476,12 +477,11 @@ void __attribute__((interrupt, no_auto_psv)) _DMA1Interrupt(void) {
             c2 = (3.0 / (T * T)) * rf;
             c3 = (-2.0 / (T * T * T)) * rf;
             t = 0;
-            //int z_time = T;
-            //sprintf(Buffer_out,"%f",T);
-            //print_uart1();
             memcpy(Buffer_nano_out, Buffer_in, sizeof (Buffer_in));
-            //Buffer_nano_out[11] = z_time << 8;
-            //Buffer_nano_out[11] = z_time % 256;
+            //theta_l = theta % 256;
+            //theta_h = theta >> 8;
+            //Buffer_nano_out[8] = theta_h;
+            //Buffer_nano_out[9] = theta_l;
             DMA2STA = __builtin_dmaoffset(Buffer_nano_out);
             DMA2CNT = 11;
             DMA2CONbits.CHEN = 1; // Re-enable DMA2 Channel
@@ -632,7 +632,6 @@ void comebackhome() {
     T1CONbits.TON = 1;
 }
 
-
 void delay(int time) {
     int i = 0, j = 0;
     for (i = 0; i <= time; i++) {
@@ -715,7 +714,7 @@ int main(void) {
         } else if (state == 3) {
             wait_ack_nano(0xB3);
             unsigned int x = 1 * k;
-            unsigned int y = 400 * k;
+            unsigned int y = 360 * k;
             setpoint_x = (long int) (x);
             setpoint_y = (long int) (y); // go target
             while (state_setpoint == 0) {
