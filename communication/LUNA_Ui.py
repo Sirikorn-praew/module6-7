@@ -1,32 +1,27 @@
-# -*- coding: utf-8 -*-
-
-# Form implementation generated from reading ui file 'LUNA.ui'
-#
-# Created by: PyQt5 UI code generator 5.9.2
-#
-# WARNING! All changes made in this file will be lost!
-
 import sys
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QMainWindow
 from PyQt5.QtWidgets import QApplication
+from PyQt5.QtWidgets import QWidget
 from PyQt5.QtGui import QPixmap
+from PyQt5.QtGui import QImage
+from PyQt5.QtCore import QTimer
 
 import cv2
-import os
+import imutils
+import numpy as np
+from camera import Camera
 
-import serial
-import time
-serialPic = serial.Serial(port= 'COM3',timeout = 3, baudrate=115200,
-                  xonxoff=0, rtscts=0,bytesize=8, parity='N', stopbits=1)
-serialPic.rts = 0
-serialPic.dtr = 0
-serialPic.timeout = 0.1
-serialPic.flush()
+# import serial
+# import time
+# serialPic = serial.Serial(port= 'COM3',timeout = 3, baudrate=115200,
+#                   xonxoff=0, rtscts=0,bytesize=8, parity='N', stopbits=1)
+# serialPic.rts = 0
+# serialPic.dtr = 0
+# serialPic.timeout = 0.1
+# serialPic.flush()
 
 st_Sethome = 0
-end = 0
-listdata = [[100,100,100,0,1],[300,100,200,0,1],[300,100,200,135,1],[100,300,100,135,1]]
 
 def toByte(x,y,z,a,g):
     din = [int(x),int(y),int(z),int(a)]
@@ -38,12 +33,10 @@ def toByte(x,y,z,a,g):
     return bytelist
 # Data FF F_ xx xx yy yy zz zz aa aa gg
 
-class Ui_Main(object):
-    def setupUi(self, Main):
-        Main.setObjectName("Main")
-        Main.resize(1280, 960)
-        Main.setStyleSheet("background-color: rgb(48, 48, 48);")
-        self.sethomeB = QtWidgets.QPushButton(Main)
+class Ui_Main(QWidget): #object
+    def __init__(self, parent=None):
+        super(Ui_Main, self).__init__(parent)
+        self.sethomeB = QtWidgets.QPushButton(self)
         self.sethomeB.setGeometry(QtCore.QRect(45, 380, 200, 50))
         font = QtGui.QFont()
         font.setFamily("Quark")
@@ -52,11 +45,11 @@ class Ui_Main(object):
         font.setWeight(75)
         self.sethomeB.setFont(font)
         self.sethomeB.setMouseTracking(False)
-        self.sethomeB.setStyleSheet("background-color: rgb(0, 85, 127);\n"
+        self.sethomeB.setStyleSheet("background-color: rgb(0, 85, 127);\n" #"border: 10px;\n""border-radius: 50;\n"
 "color: rgb(255, 255, 255);")
         self.sethomeB.setCheckable(False)
         self.sethomeB.setObjectName("sethomeB")
-        self.captureB = QtWidgets.QPushButton(Main)
+        self.captureB = QtWidgets.QPushButton(self)
         self.captureB.setGeometry(QtCore.QRect(45, 460, 200, 50))
         font = QtGui.QFont()
         font.setFamily("Quark")
@@ -69,7 +62,7 @@ class Ui_Main(object):
 "color: rgb(255, 255, 255);")
         self.captureB.setCheckable(False)
         self.captureB.setObjectName("captureB")
-        self.catchB = QtWidgets.QPushButton(Main)
+        self.catchB = QtWidgets.QPushButton(self)
         self.catchB.setGeometry(QtCore.QRect(45, 540, 200, 50))
         font = QtGui.QFont()
         font.setFamily("Quark")
@@ -82,7 +75,7 @@ class Ui_Main(object):
 "color: rgb(255, 255, 255);")
         self.catchB.setCheckable(False)
         self.catchB.setObjectName("catchB")
-        self.move_pidB = QtWidgets.QPushButton(Main)
+        self.move_pidB = QtWidgets.QPushButton(self)
         self.move_pidB.setGeometry(QtCore.QRect(45, 620, 200, 50))
         font = QtGui.QFont()
         font.setFamily("Quark")
@@ -95,7 +88,7 @@ class Ui_Main(object):
 "color: rgb(255, 255, 255);")
         self.move_pidB.setCheckable(False)
         self.move_pidB.setObjectName("move_pidB")
-        self.move_trajB = QtWidgets.QPushButton(Main)
+        self.move_trajB = QtWidgets.QPushButton(self)
         self.move_trajB.setGeometry(QtCore.QRect(45, 700, 200, 50))
         font = QtGui.QFont()
         font.setFamily("Quark")
@@ -108,7 +101,7 @@ class Ui_Main(object):
 "color: rgb(255, 255, 255);")
         self.move_trajB.setCheckable(False)
         self.move_trajB.setObjectName("move_trajB")
-        self.resetB = QtWidgets.QPushButton(Main)
+        self.resetB = QtWidgets.QPushButton(self)
         self.resetB.setGeometry(QtCore.QRect(1050, 40, 200, 50))
         font = QtGui.QFont()
         font.setFamily("Quark")
@@ -122,7 +115,35 @@ class Ui_Main(object):
         self.resetB.setCheckable(False)
         self.resetB.setObjectName("resetB")
 
-        self.quitB = QtWidgets.QPushButton(Main)
+        self.TakePicB = QtWidgets.QPushButton("TakePic", self)
+        self.TakePicB.setGeometry(QtCore.QRect(1050, 100, 200, 50))
+        font = QtGui.QFont()
+        font.setFamily("Quark")
+        font.setPointSize(14)
+        font.setBold(True)
+        font.setWeight(75)
+        self.TakePicB.setFont(font)
+        self.TakePicB.setMouseTracking(False)
+        self.TakePicB.setStyleSheet("background-color: rgb(0, 0, 0);\n"
+"color: rgb(255, 255, 255);")
+        self.TakePicB.setCheckable(False)
+        self.TakePicB.setObjectName("TakePicB")
+
+        self.proPicB = QtWidgets.QPushButton("Process", self)
+        self.proPicB.setGeometry(QtCore.QRect(1050, 160, 200, 50))
+        font = QtGui.QFont()
+        font.setFamily("Quark")
+        font.setPointSize(14)
+        font.setBold(True)
+        font.setWeight(75)
+        self.proPicB.setFont(font)
+        self.proPicB.setMouseTracking(False)
+        self.proPicB.setStyleSheet("background-color: rgb(255, 182, 3);\n"
+"color: rgb(255, 255, 255);")
+        self.proPicB.setCheckable(False)
+        self.proPicB.setObjectName("proPicB")
+
+        self.quitB = QtWidgets.QPushButton(self)
         self.quitB.setGeometry(QtCore.QRect(1080, 550, 100, 40))
         font = QtGui.QFont()
         font.setFamily("Quark")
@@ -136,7 +157,7 @@ class Ui_Main(object):
         self.quitB.setCheckable(False)
         self.quitB.setObjectName("quitB")
 
-        self.sent_pidB = QtWidgets.QPushButton(Main)
+        self.sent_pidB = QtWidgets.QPushButton(self)
         self.sent_pidB.setGeometry(QtCore.QRect(1080, 625, 100, 40))
         font = QtGui.QFont()
         font.setFamily("Quark")
@@ -149,7 +170,7 @@ class Ui_Main(object):
 "color: rgb(255, 255, 255);")
         self.sent_pidB.setCheckable(False)
         self.sent_pidB.setObjectName("sent_pidB")
-        self.sent_trajB = QtWidgets.QPushButton(Main)
+        self.sent_trajB = QtWidgets.QPushButton(self)
         self.sent_trajB.setGeometry(QtCore.QRect(1080, 705, 100, 40))
         font = QtGui.QFont()
         font.setFamily("Quark")
@@ -162,7 +183,7 @@ class Ui_Main(object):
 "color: rgb(255, 255, 255);")
         self.sent_trajB.setCheckable(False)
         self.sent_trajB.setObjectName("sent_trajB")
-        self.InX = QtWidgets.QLineEdit(Main)
+        self.InX = QtWidgets.QLineEdit(self)
         self.InX.setGeometry(QtCore.QRect(520, 625, 50, 40))
         font = QtGui.QFont()
         font.setFamily("Quark")
@@ -170,7 +191,7 @@ class Ui_Main(object):
         self.InX.setFont(font)
         self.InX.setStyleSheet("background-color: rgb(255, 255, 255);")
         self.InX.setObjectName("InX")
-        self.labelX = QtWidgets.QLabel(Main)
+        self.labelX = QtWidgets.QLabel(self)
         self.labelX.setGeometry(QtCore.QRect(480, 625, 40, 40))
         font = QtGui.QFont()
         font.setFamily("Quark")
@@ -180,7 +201,7 @@ class Ui_Main(object):
         self.labelX.setFont(font)
         self.labelX.setStyleSheet("color: rgb(255, 255, 255);")
         self.labelX.setObjectName("labelX")
-        self.InY = QtWidgets.QLineEdit(Main)
+        self.InY = QtWidgets.QLineEdit(self)
         self.InY.setGeometry(QtCore.QRect(640, 625, 50, 40))
         font = QtGui.QFont()
         font.setFamily("Quark")
@@ -188,7 +209,7 @@ class Ui_Main(object):
         self.InY.setFont(font)
         self.InY.setStyleSheet("background-color: rgb(255, 255, 255);")
         self.InY.setObjectName("InY")
-        self.labelY = QtWidgets.QLabel(Main)
+        self.labelY = QtWidgets.QLabel(self)
         self.labelY.setGeometry(QtCore.QRect(600, 625, 40, 40))
         font = QtGui.QFont()
         font.setFamily("Quark")
@@ -198,7 +219,7 @@ class Ui_Main(object):
         self.labelY.setFont(font)
         self.labelY.setStyleSheet("color: rgb(255, 255, 255);")
         self.labelY.setObjectName("labelY")
-        self.textEdit = QtWidgets.QTextEdit(Main)
+        self.textEdit = QtWidgets.QTextEdit(self)
         self.textEdit.setGeometry(QtCore.QRect(550, 790, 400, 100))
         font = QtGui.QFont()
         font.setFamily("Quark")
@@ -208,7 +229,7 @@ class Ui_Main(object):
         self.textEdit.setFont(font)
         self.textEdit.setStyleSheet("color: rgb(255, 255, 255);")
         self.textEdit.setObjectName("textEdit")
-        self.InZ = QtWidgets.QLineEdit(Main)
+        self.InZ = QtWidgets.QLineEdit(self)
         self.InZ.setGeometry(QtCore.QRect(760, 625, 50, 40))
         font = QtGui.QFont()
         font.setFamily("Quark")
@@ -216,7 +237,7 @@ class Ui_Main(object):
         self.InZ.setFont(font)
         self.InZ.setStyleSheet("background-color: rgb(255, 255, 255);")
         self.InZ.setObjectName("InZ")
-        self.labelZ = QtWidgets.QLabel(Main)
+        self.labelZ = QtWidgets.QLabel(self)
         self.labelZ.setGeometry(QtCore.QRect(720, 625, 40, 40))
         font = QtGui.QFont()
         font.setFamily("Quark")
@@ -226,7 +247,7 @@ class Ui_Main(object):
         self.labelZ.setFont(font)
         self.labelZ.setStyleSheet("color: rgb(255, 255, 255);")
         self.labelZ.setObjectName("labelZ")
-        self.InX_2 = QtWidgets.QLineEdit(Main)
+        self.InX_2 = QtWidgets.QLineEdit(self)
         self.InX_2.setGeometry(QtCore.QRect(520, 705, 50, 40))
         font = QtGui.QFont()
         font.setFamily("Quark")
@@ -234,7 +255,7 @@ class Ui_Main(object):
         self.InX_2.setFont(font)
         self.InX_2.setStyleSheet("background-color: rgb(255, 255, 255);")
         self.InX_2.setObjectName("InX_2")
-        self.InY_2 = QtWidgets.QLineEdit(Main)
+        self.InY_2 = QtWidgets.QLineEdit(self)
         self.InY_2.setGeometry(QtCore.QRect(640, 705, 50, 40))
         font = QtGui.QFont()
         font.setFamily("Quark")
@@ -242,7 +263,7 @@ class Ui_Main(object):
         self.InY_2.setFont(font)
         self.InY_2.setStyleSheet("background-color: rgb(255, 255, 255);")
         self.InY_2.setObjectName("InY_2")
-        self.labelY_2 = QtWidgets.QLabel(Main)
+        self.labelY_2 = QtWidgets.QLabel(self)
         self.labelY_2.setGeometry(QtCore.QRect(600, 705, 40, 40))
         font = QtGui.QFont()
         font.setFamily("Quark")
@@ -252,7 +273,7 @@ class Ui_Main(object):
         self.labelY_2.setFont(font)
         self.labelY_2.setStyleSheet("color: rgb(255, 255, 255);")
         self.labelY_2.setObjectName("labelY_2")
-        self.InZ_2 = QtWidgets.QLineEdit(Main)
+        self.InZ_2 = QtWidgets.QLineEdit(self)
         self.InZ_2.setGeometry(QtCore.QRect(760, 705, 50, 40))
         font = QtGui.QFont()
         font.setFamily("Quark")
@@ -260,7 +281,7 @@ class Ui_Main(object):
         self.InZ_2.setFont(font)
         self.InZ_2.setStyleSheet("background-color: rgb(255, 255, 255);")
         self.InZ_2.setObjectName("InZ_2")
-        self.labelX_2 = QtWidgets.QLabel(Main)
+        self.labelX_2 = QtWidgets.QLabel(self)
         self.labelX_2.setGeometry(QtCore.QRect(480, 705, 40, 40))
         font = QtGui.QFont()
         font.setFamily("Quark")
@@ -270,7 +291,7 @@ class Ui_Main(object):
         self.labelX_2.setFont(font)
         self.labelX_2.setStyleSheet("color: rgb(255, 255, 255);")
         self.labelX_2.setObjectName("labelX_2")
-        self.labelZ_2 = QtWidgets.QLabel(Main)
+        self.labelZ_2 = QtWidgets.QLabel(self)
         self.labelZ_2.setGeometry(QtCore.QRect(720, 705, 40, 40))
         font = QtGui.QFont()
         font.setFamily("Quark")
@@ -280,7 +301,7 @@ class Ui_Main(object):
         self.labelZ_2.setFont(font)
         self.labelZ_2.setStyleSheet("color: rgb(255, 255, 255);")
         self.labelZ_2.setObjectName("labelZ_2")
-        self.labelA = QtWidgets.QLabel(Main)
+        self.labelA = QtWidgets.QLabel(self)
         self.labelA.setGeometry(QtCore.QRect(840, 625, 40, 40))
         font = QtGui.QFont()
         font.setFamily("Quark")
@@ -290,7 +311,7 @@ class Ui_Main(object):
         self.labelA.setFont(font)
         self.labelA.setStyleSheet("color: rgb(255, 255, 255);")
         self.labelA.setObjectName("labelA")
-        self.InA = QtWidgets.QLineEdit(Main)
+        self.InA = QtWidgets.QLineEdit(self)
         self.InA.setGeometry(QtCore.QRect(880, 625, 50, 40))
         font = QtGui.QFont()
         font.setFamily("Quark")
@@ -298,7 +319,7 @@ class Ui_Main(object):
         self.InA.setFont(font)
         self.InA.setStyleSheet("background-color: rgb(255, 255, 255);")
         self.InA.setObjectName("InA")
-        self.InA_2 = QtWidgets.QLineEdit(Main)
+        self.InA_2 = QtWidgets.QLineEdit(self)
         self.InA_2.setGeometry(QtCore.QRect(880, 705, 50, 40))
         font = QtGui.QFont()
         font.setFamily("Quark")
@@ -306,7 +327,7 @@ class Ui_Main(object):
         self.InA_2.setFont(font)
         self.InA_2.setStyleSheet("background-color: rgb(255, 255, 255);")
         self.InA_2.setObjectName("InA_2")
-        self.labelA_2 = QtWidgets.QLabel(Main)
+        self.labelA_2 = QtWidgets.QLabel(self)
         self.labelA_2.setGeometry(QtCore.QRect(840, 705, 40, 40))
         font = QtGui.QFont()
         font.setFamily("Quark")
@@ -316,7 +337,7 @@ class Ui_Main(object):
         self.labelA_2.setFont(font)
         self.labelA_2.setStyleSheet("color: rgb(255, 255, 255);")
         self.labelA_2.setObjectName("labelA_2")
-        self.frame = QtWidgets.QFrame(Main)
+        self.frame = QtWidgets.QFrame(self)
         self.frame.setGeometry(QtCore.QRect(0, 0, 300, 960))
         self.frame.setStyleSheet("background-color: rgb(31, 38, 107);")
         self.frame.setFrameShape(QtWidgets.QFrame.StyledPanel)
@@ -326,18 +347,19 @@ class Ui_Main(object):
         self.labelPic_2.setGeometry(QtCore.QRect(0, 0, 300, 960))
         self.labelPic_2.setObjectName("labelPic_2")
 
-        pixmap = QPixmap('L_G16.jpg')    
-        self.labelPic_2.setPixmap(pixmap)
+        Lpixmap = QPixmap('L_G16.jpg')    
+        self.labelPic_2.setPixmap(Lpixmap)
 
-        self.labelPic = QtWidgets.QLabel(Main)
+        self.labelPic = QtWidgets.QLabel(self)
         self.labelPic.setGeometry(QtCore.QRect(500, 90, 500, 500))
         self.labelPic.setObjectName("labelPic")
 
-        pixmap = QPixmap('Realy.jpg')
-        pixmap = pixmap.scaled(500,500)      
-        self.labelPic.setPixmap(pixmap)
+        # pixmap = QPixmap('Realy.jpg')
+        self.pixmap = QPixmap('LOGO_G16.jpg')
+        self.pixmap = self.pixmap.scaled(500,500)      
+        self.labelPic.setPixmap(self.pixmap)
 
-        self.comboBox = QtWidgets.QComboBox(Main)
+        self.comboBox = QtWidgets.QComboBox(self)
         self.comboBox.setGeometry(QtCore.QRect(1000, 625, 50, 40))
         font = QtGui.QFont()
         font.setFamily("Quark")
@@ -347,7 +369,7 @@ class Ui_Main(object):
         self.comboBox.setObjectName("comboBox")
         self.comboBox.addItem("")
         self.comboBox.addItem("")
-        self.labelA_3 = QtWidgets.QLabel(Main)
+        self.labelA_3 = QtWidgets.QLabel(self)
         self.labelA_3.setGeometry(QtCore.QRect(960, 625, 40, 40))
         font = QtGui.QFont()
         font.setFamily("Quark")
@@ -357,7 +379,7 @@ class Ui_Main(object):
         self.labelA_3.setFont(font)
         self.labelA_3.setStyleSheet("color: rgb(255, 255, 255);")
         self.labelA_3.setObjectName("labelA_3")
-        self.labelA_4 = QtWidgets.QLabel(Main)
+        self.labelA_4 = QtWidgets.QLabel(self)
         self.labelA_4.setGeometry(QtCore.QRect(960, 705, 40, 40))
         font = QtGui.QFont()
         font.setFamily("Quark")
@@ -367,7 +389,7 @@ class Ui_Main(object):
         self.labelA_4.setFont(font)
         self.labelA_4.setStyleSheet("color: rgb(255, 255, 255);")
         self.labelA_4.setObjectName("labelA_4")
-        self.comboBox_2 = QtWidgets.QComboBox(Main)
+        self.comboBox_2 = QtWidgets.QComboBox(self)
         self.comboBox_2.setGeometry(QtCore.QRect(1000, 705, 50, 40))
         font = QtGui.QFont()
         font.setFamily("Quark")
@@ -382,6 +404,7 @@ class Ui_Main(object):
         self.captureB.clicked.connect(Capture)
         self.catchB.clicked.connect(Catch)
         self.resetB.clicked.connect(Reset) 
+        self.proPicB.clicked.connect(ProcessPic)
         self.quitB.clicked.connect(Quit)
         self.sent_pidB.clicked.connect(self.insertTextPID)
         self.sent_trajB.clicked.connect(self.insertTextTraj)
@@ -394,6 +417,7 @@ class Ui_Main(object):
         self.move_pidB.raise_()
         self.move_trajB.raise_()
         self.resetB.raise_()
+        self.TakePicB.raise_()
         self.quitB.raise_()
         self.sent_pidB.raise_()
         self.sent_trajB.raise_()
@@ -420,8 +444,9 @@ class Ui_Main(object):
         self.labelA_4.raise_()
         self.comboBox_2.raise_()
 
-        self.retranslateUi(Main)
-        QtCore.QMetaObject.connectSlotsByName(Main)
+        self.retranslateUi(self)
+        # QtCore.QMetaObject.connectSlotsByName(Main)
+        # Main.setCentralWidget(self.centralwidget)
 
     def retranslateUi(self, Main):
         _translate = QtCore.QCoreApplication.translate
@@ -432,6 +457,7 @@ class Ui_Main(object):
         self.move_pidB.setText(_translate("Main", "Move PID"))
         self.move_trajB.setText(_translate("Main", "Move Traj"))
         self.resetB.setText(_translate("Main", "Reset"))
+        # self.TakePicB.setText(_translate("Main", "TakePic"))
         self.quitB.setText(_translate("Main", "quit"))
         self.sent_pidB.setText(_translate("Main", "Sent"))
         self.sent_trajB.setText(_translate("Main", "Sent"))
@@ -475,135 +501,158 @@ class Ui_Main(object):
         MoveI("Traj",tx,ty,tz,ta,tg)
         # print(tx+', '+ty+', '+tz)
     def connectPID(self):
-        Move("PID",listdata)
+        Move("PID", listdata)
     def connectTraj(self):
-        Move("Traj",listdata)
+        print("inconTraj")
+        Move("Traj", listdata)
+
+class Ui_Img(QWidget):
+    def __init__(self, parent=None):
+        super(Ui_Img, self).__init__(parent)
+        self.mainB = QtWidgets.QPushButton("Main", self)
+        self.mainB.setGeometry(QtCore.QRect(1050, 40, 200, 50))
+        font = QtGui.QFont()
+        font.setFamily("Quark")
+        font.setPointSize(14)
+        font.setBold(True)
+        font.setWeight(75)
+        self.mainB.setFont(font)
+        self.mainB.setMouseTracking(False)
+        self.mainB.setStyleSheet("background-color: rgb(0, 0, 0);\n"
+"color: rgb(255, 255, 255);")
+        self.mainB.setCheckable(False)
+        self.mainB.setObjectName("MainB")
+        self.control_bt = QtWidgets.QPushButton(self)
+        self.control_bt.setGeometry(QtCore.QRect(550, 800, 200, 50))
+        font = QtGui.QFont()
+        font.setFamily("Quark")
+        font.setPointSize(14)
+        font.setBold(True)
+        font.setWeight(75)
+        self.control_bt.setFont(font)
+        self.control_bt.setMouseTracking(False)
+        self.control_bt.setStyleSheet("background-color: rgb(201, 0, 0);\n"
+"color: rgb(255, 255, 255);")
+        self.control_bt.setCheckable(False)
+        self.control_bt.setObjectName("control_bt")
+
+        self.capB = QtWidgets.QPushButton(self)
+        self.capB.setGeometry(QtCore.QRect(550, 880, 200, 50))
+        font = QtGui.QFont()
+        font.setFamily("Quark")
+        font.setPointSize(14)
+        font.setBold(True)
+        font.setWeight(75)
+        self.capB.setFont(font)
+        self.capB.setMouseTracking(False)
+        self.capB.setStyleSheet("background-color: rgb(255, 182, 3);\n"
+"color: rgb(255, 255, 255);")
+        self.capB.setCheckable(False)
+        self.capB.setObjectName("capB")       
+        
+        self.image_label = QtWidgets.QLabel(self)
+        self.image_label.setGeometry(QtCore.QRect(150, 150, 1000, 600))
+        self.image_label.setObjectName("image_label")
+
+        self.retranslateUi(self)
+        # QtCore.QMetaObject.connectSlotsByName(Form)
+
+    def retranslateUi(self, Main):
+        _translate = QtCore.QCoreApplication.translate
+        # self.image_label.setText(_translate("Main", "TextLabel"))
+        self.control_bt.setText(_translate("Main", "Start"))
+        self.capB.setText(_translate("Main", "Cap"))
         
 def Quit():
     end = 1
-
 def Sethome():
     global st_Sethome
-    global end
-    error = 0
     data = [255,241,0,0,0,0,0,0,0,0,0]                            #"FF,F1" + x + y + z + a + g
     if st_Sethome == 1:
             msg = "Sethome Already"
             mySW.SetMsg(msg)
             return 0
     print(data)
-    serialPic.write(serial.to_bytes(data))
-    t = 0
-    while(True):
-        msg = "LUNA Loading..."
-        mySW.SetMsg(msg)
-        a = serialPic.readline()
-        if end == 1:
-            end = 0
-            break
-        if len(a) != 0:
-            print(a)
-            spic = [b for b in a][0]
-            if spic == 241:
-                break
-            else:
-                msg = "Error!"
-                mySW.SetMsg(msg)
-                error = 1
-                break
-        time.sleep(2)
-        serialPic.write(serial.to_bytes(data))
-        t += 1
-        if t >= 2:
-            break
-    if error!= 1:
-        st_Sethome = 1
-        mySW.ui.sethomeB.setStyleSheet("background-color: rgb(100, 100, 100);\n"
-            "color: rgb(255, 255, 255);")
-        print("LUNA Comimg Home")
-        msg = "LUNA Comimg Home"
-        mySW.SetMsg(msg)
-
-def CaptureImg(numPic):
-    videoCaptureObject = cv2.VideoCapture(0)
-    result = True
-    path = "D:\Bachelor\Y3\Module\Commu\Pic"
-    namePic = "0" + str(numPic) + ".jpg"
-    while(result):
-        ret,frame = videoCaptureObject.read()
-        cv2.imwrite(os.path.join(path, namePic) ,frame)
-        result = False
-    videoCaptureObject.release()
-    cv2.destroyAllWindows()
-
-def Capture():
-    global end
-    data = [255,242,0,0,0,0,0,0,0,0,0]                            #"FF,F2"
-    print(data)
-    state = 1
-    #CaptureImg(0)
     msg = "LUNA Loading..."
     mySW.SetMsg(msg)
-    serialPic.write(serial.to_bytes(data))
-    while(True):
-        a = serialPic.readline()
-        if end == 1:
-            end = 0
-            break
-        if len(a) != 0:
-            print(a)
-            spic = [b for b in a][0]
-            ac = [255,170,spic,0,0,0,0,0,0,0,0]
-            if spic == 5:
-                print("state = "+ str(state))
-                msg = "state = "+ str(state)
-                mySW.SetMsg(msg)
-                time.sleep(1)
-                #CaptureImg(state)
-                serialPic.write(serial.to_bytes(ac))
-                print(ac)
-                break
-            elif spic == state:
-                print("state = "+ str(state))
-                msg = "state = "+ str(state)
-                mySW.SetMsg(msg)
-                time.sleep(1)
-                # CaptureImg(state)
-                serialPic.write(serial.to_bytes(ac))
-                print(ac)
-                state += 1
-            if spic == 99:
-                print("error");
-                serialPic.write(serial.to_bytes(data))
-                state = 1
+#     serialPic.write(serial.to_bytes(data))
+#     t = 0
+#     while(True):
+#         a = serialPic.readline()
+#         if len(a) != 0:
+#             print(a)
+#             spic = [b for b in a][0]
+#             if spic == 241:
+#                 break
+#         time.sleep(2)
+#         serialPic.write(serial.to_bytes(data))
+#         t += 1
+#         if t >= 2:
+#             break
+    st_Sethome = 1
+    mySW.ui.sethomeB.setStyleSheet("background-color: rgb(100, 100, 100);\n"
+        "color: rgb(255, 255, 255);")
+    print("LUNA Comimg Home")
+    msg = "LUNA Comimg Home"
+    mySW.SetMsg(msg)
+
+def Capture():
+    data = [255,242,0,0,0,0,0,0,0,0,0]                            #"FF,F2"
+    print(data)
+    msg = "LUNA Loading..."
+    mySW.SetMsg(msg)
+    # serialPic.write(serial.to_bytes(data))
+    # state = 1
+    # while(True):
+    #     a = serialPic.readline()
+    #     print(a)
+    #     spic = [b for b in a][0]
+    #     if spic == state:
+    #         print("state = "+ str(state))
+    #         serialPic.write(serial.to_bytes(spic))
+    #         state += 1
+    #     if spic == 99:
+    #         print("error");
+    #         serialPic.write(serial.to_bytes(data))
+    #         state = 1
+    #     if spic == 242:
+    #         break
     print("Capture Finish")
-    msg = "Capture Finish"
+    t = "Capture Finish"
+    mySW.SetMsg(t)
+
+
+def ProcessPic():
+    global listdata
+    aruco()
+    median()
+    listdata = mix.run()
+    print(listdata)
+    mySW.ui_main.pixmap = QPixmap('Realy.jpg')
+    mySW.ui_main.pixmap = mySW.ui_main.pixmap.scaled(500,500)      
+    mySW.ui_main.labelPic.setPixmap(mySW.ui_main.pixmap)
+    msg = "Process Finish\n" + str(listdata)
     mySW.SetMsg(msg)
 
 def Catch():
-    global end
-    data = [255,243,0,60,0,200,0,200,0,0,255]                           #"FF,F3" + x + y + z 
+    data = [255,243,0,0,0,0,0,0,0,0,0]                           #"FF,F3" + x + y + z 
     print(data)
-    serialPic.write(serial.to_bytes(data))
-    while(True):
-        msg = "LUNA Loading..."
-        mySW.SetMsg(msg)
-        a = serialPic.readline()
-        if end == 1:
-            end = 0
-            break
-        if len(a) != 0:
-            print(a)
-            spic = [b for b in a][0]
-            if spic == 243:
-                break
-    print("Catch!")
-    msg = "Catch!"  
+    msg = "LUNA Loading..."
     mySW.SetMsg(msg)
+    # serialPic.write(serial.to_bytes(data))
+    # while(True):
+    #     a = serialPic.readline()
+    #     if len(a) != 0:
+    #         print(a)
+    #         spic = [b for b in a][0]
+    #         if spic == 243:
+    #             break
+    print("Catch!")
+    t = "Catch!"
+    mySW.SetMsg(t)
 
 
 def MoveI(m,x,y,z,a,g):
-    global end
     byteL = toByte(x,y,z,a,g)
     if m == "PID":
         data = [255,244,byteL[0],byteL[1],byteL[2],byteL[3],byteL[4],byteL[5],byteL[6],byteL[7],byteL[8]]    #"FF,F4" + x + y + z
@@ -612,82 +661,44 @@ def MoveI(m,x,y,z,a,g):
     print(data)
     msg = "LUNA Loading..."
     mySW.SetMsg(msg)
-    serialPic.write(serial.to_bytes(data))
-    while(True):
-        msg = "LUNA Loading..."
-        mySW.SetMsg(msg)
-        pic = serialPic.readline()
-        if end == 1:
-            end = 0
-            break
-        if len(pic) != 0:
-            print(pic)
-            spic = [b for b in pic][0]
-            if m == "PID":
-                if spic == 244:
-                    break
-            if m == "Traj":
-                if spic == 245:
-                    break    
-    #print("Move to x="+ x +" , y="+ y + " , z="+ z + " , a="+ a + " , g="+ g)
-    msg = "Move to x="+ x +" , y="+ y + " , z="+ z + " , a="+ a + " , g="+ g
-    mySW.SetMsg(msg)
-
-def Move(m,list):
-    global end
-    for i in list:    
-        byteL = toByte(i[0],i[1],i[2],i[3],i[4])
-        if m == "PID":
-            data = [255,244,byteL[0],byteL[1],byteL[2],byteL[3],byteL[4],byteL[5],byteL[6],byteL[7],byteL[8]]    #"FF,F4" + x + y + z
-        if m == "Traj":
-            data = [255,245,byteL[0],byteL[1],byteL[2],byteL[3],byteL[4],byteL[5],byteL[6],byteL[7],byteL[8]]    #"FF,F5" + x + y + z
-        print(data)
-        msg = "LUNA Loading..."
-        mySW.SetMsg(msg)
-        serialPic.write(serial.to_bytes(data))
-        while(True):
-            a = serialPic.readline()
-            if end == 1:
-                end = 0
-                break
-            if len(a) != 0:
-                print(a)
-                spic = [b for b in a][0]
-                if m == "PID":
-                    if spic == 244:
-                        break
-                if m == "Traj":
-                    if spic == 245:
-                        break    
-        #print("Move to x="+ x +" , y="+ y + " , z="+ z + " , a="+ a + " , g="+ g)
-        msg = "Move to x="+ str(i[0]) +" , y="+ str(i[1]) + " , z="+ str(i[2]) + " , a="+ str(i[3]) + " , g="+ str(i[4])
-        mySW.SetMsg(msg) 
+    # serialPic.write(serial.to_bytes(data))
+    # while(True):
+    #     a = serialPic.readline()
+    #     if len(a) != 0:
+    #         print(a)
+    #         spic = [b for b in a][0]
+    #         if m == "PID":
+    #             if spic == 244:
+    #                 break
+    #         if m == "Traj":
+    #             if spic == 245:
+    #                 break    
+    print("Move to x="+ x +" , y="+ y + " , z="+ z + " , a="+ a + " , g="+ g)
+    t = "Move to x="+ x +" , y="+ y + " , z="+ z + " , a="+ a + " , g="+ g
+    mySW.SetMsg(t)
+    
 
 def Reset():
-    global end
     global st_Sethome
     data = [255,187,0,0,0,0,0,0,0,0,0]                            #"FF,BB" 
     print(data)
     msg = "LUNA Loading..."
     mySW.SetMsg(msg)
-    serialPic.write(serial.to_bytes(data))
-    while(True):
-        a = serialPic.readline()
-        if end == 1:
-            end = 0
-            break
-        if len(a) != 0:
-            print(a)
-            spic = [b for b in a][0]
-            if spic == 187:
-                time.sleep(1)
-                serialPic.rts = 1
-                time.sleep(1)
-                serialPic.rts = 0
-                serialPic.dtr = 0
-                serialPic.timeout = 0.1
-                serialPic.flush()
-                break   
+    # serialPic.write(serial.to_bytes(data))
+    # while(True):
+    #     a = serialPic.readline()
+    #     if len(a) != 0:
+    #         print(a)
+    #         spic = [b for b in a][0]
+    #         if spic == 187:
+    #             time.sleep(1)
+    #             serialPic.rts = 1
+    #             time.sleep(1)
+    #             serialPic.rts = 0
+    #             serialPic.dtr = 0
+    #             serialPic.timeout = 0.1
+    #             serialPic.flush()
+    #             break   
     print("LUNA Reset Complete")
     st_Sethome = 0
     mySW.ui.sethomeB.setStyleSheet("background-color: rgb(0, 85, 127);\n"
@@ -695,25 +706,84 @@ def Reset():
     t = "LUNA Reset Complete"
     mySW.SetMsg(t)
 
-class ControlMainWindow(QMainWindow): #เพิ่มคลาสมาอีก
+class Main(QMainWindow): #เพิ่มคลาสมาอีก
         def __init__(self, parent=None):
-                super(ControlMainWindow, self).__init__(parent)
-                self.ui =  Ui_Main() #ดึงคลาส  Ui_Form ที่เก็บรายละอียด ui มาใช้
-                self.ui.setupUi(self)
-        def SetMsg(self,msg):
-            self.ui.textEdit.setText(msg)
+                super(Main, self).__init__(parent)
+                self.setGeometry(500, 50, 400, 450)
+                self.resize(1280, 960)
+                self.setStyleSheet("background-color: rgb(48, 48, 48);")
+                # self.ui_main =  Ui_Main() #ดึงคลาส  Ui_Form ที่เก็บรายละอียด ui มาใช้
+                # self.ui_img = Ui_Img()
+                self.startUiMain()
+                # self.ui_main.setupUi(self)
 
+        def startUiImg(self):
+            self.ui_img = Ui_Img(self)
+            self.setWindowTitle("Image")
+            self.setCentralWidget(self.ui_img)
+            # self.ui_img.setupUi(self)
+            self.ui_img.mainB.clicked.connect(self.startUiMain)
+            # create a timer
+            self.timer = QTimer()
+            # set timer timeout callback function
+            self.timer.timeout.connect(self.viewCam)
+            # set control_bt callback clicked  function
+            self.ui_img.control_bt.clicked.connect(self.controlTimer)
+            self.show()
+
+        def startUiMain(self):
+            self.ui_main =  Ui_Main(self)
+            self.setWindowTitle("Main")
+            self.setCentralWidget(self.ui_main)
+            # self.ui_main.setupUi(self)
+            self.ui_main.TakePicB.clicked.connect(self.startUiImg)
+            self.show()
+
+        def SetMsg(self,t):
+            self.ui_main.textEdit.setText(t)
+        
+        # view camera
+        def viewCam(self):
+            # read image in BGR format
+            ret, image = self.cap.read()
+            # convert image to RGB format
+            # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            rect_mask = cv2.rectangle(np.ones_like(image)*255, (430, 220), (630, 420), (0,0,0), -1)
+            alpha = 0.5
+            cv2.addWeighted(rect_mask, alpha, image, 1-alpha,0,image)
+            # get image infos
+            height, width, channel = image.shape
+            step = channel * width
+            # create QImage from image
+            qImg = QImage(image.data, width, height, step, QImage.Format_RGB888)
+            # show image in img_label
+            self.ui_img.image_label.setPixmap(QPixmap.fromImage(qImg))
+        
+        def controlTimer(self):
+            cap = Camera()
+            image = cap.read()
+            # if timer is stopped
+            if not self.timer.isActive():
+                # create video capture
+                self.cap = cap.cap
+                # start timer
+                self.timer.start(20)
+                # update control_bt text
+                self.ui_img.control_bt.setText("Stop")
+            # if timer is started
+            else:
+                # stop timer
+                self.timer.stop()
+                # release video capture
+                self.cap.release()
+                resized = imutils.resize(image[220:420, 430:630], height=200)
+                cv2.imwrite("card.jpg", resized)
+                # update control_bt text
+                self.ui_img.control_bt.setText("Start")
 
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    mySW = ControlMainWindow() 
-    mySW.show()  #แสดง
+    mySW = Main() 
     sys.exit(app.exec_())
-def main():
-        app = QApplication(sys.argv)
-        mySW = ControlMainWindow()  #ดึงคลาส ControlMainWindow มาใช้
-        mySW.show()
-        sys.exit(app.exec_())
-if __name__ == "__main__":
-  a = main() 
+ 
